@@ -61,12 +61,14 @@ class AuthController
         }
 
         // 🔐 CREAR SESIÓN (CONTROLLER RESPONSABLE)
-        $user = $result['data'];
+        $data = $result['data'];
+        $user = $data['user'];
 
         session_regenerate_id(true);
 
         $_SESSION['usuario_id'] = $user['id'];
         $_SESSION['rol'] = $user['id_rol'];
+        $_SESSION['session_id'] = $data['session_id'];
 
         Response::success("Login exitoso", $user);
     }
@@ -77,7 +79,16 @@ class AuthController
     public function logout()
     {
 
-        session_start();
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+
+        $userId = $_SESSION['usuario_id'] ?? null;
+        $sessionId = $_SESSION['session_id'] ?? session_id();
+
+        if ($userId) {
+            $this->authService->revokeSession($userId, $sessionId);
+        }
 
         $_SESSION = [];
 
@@ -97,6 +108,30 @@ class AuthController
         session_destroy();
 
         Response::success("Sesión cerrada");
+    }
+
+    // =========================
+    // REENVIAR VERIFICACIÓN
+    // =========================
+    public function resendVerification($data)
+    {
+        $email = trim($data['email'] ?? '');
+
+        if (!$email) {
+            Response::error("El correo electrónico es obligatorio");
+        }
+
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            Response::error("Email no válido");
+        }
+
+        $result = $this->authService->resendVerification($email);
+
+        if (!$result['success']) {
+            Response::error($result['message']);
+        }
+
+        Response::success($result['message']);
     }
 
     // =========================
