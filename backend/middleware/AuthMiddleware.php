@@ -4,9 +4,11 @@ require_once __DIR__ . '/../config/session.php';
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/Response.php';
 
-class AuthMiddleware {
+class AuthMiddleware
+{
 
-    public static function check() {
+    public static function check()
+    {
 
         // 1. Verificar sesión PHP
         if (!isset($_SESSION['usuario_id'])) {
@@ -14,6 +16,7 @@ class AuthMiddleware {
         }
 
         $usuario_id = $_SESSION['usuario_id'];
+        $session_id = $_SESSION['session_id'] ?? null;
 
         global $conn;
 
@@ -36,6 +39,20 @@ class AuthMiddleware {
             session_destroy();
             Response::error("Usuario suspendido");
         }
+
+        if (empty($session_id)) {
+            session_destroy();
+            Response::error("Sesión inválida");
+        }
+
+        $session = $conn->query("SELECT * FROM user_sessions WHERE user_id = $usuario_id AND session_id = '$session_id' AND revoked = 0 AND expires_at > NOW() LIMIT 1");
+
+        if ($session && $session->num_rows === 0) {
+            session_destroy();
+            Response::error("Sesión inválida o expirada");
+        }
+
+        $conn->query("UPDATE user_sessions SET last_activity = NOW() WHERE user_id = $usuario_id AND session_id = '$session_id'");
 
         // 4. Cargar usuario globalmente para uso posterior
         $_SESSION['usuario'] = $usuario;
