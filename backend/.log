@@ -1,0 +1,91 @@
+Table usuarios {
+  id int [pk, increment]
+  nombre varchar(100) [not null]
+  email varchar(100) [not null, unique]
+  password varchar(255) [not null]
+  telefono varchar(20)
+  rol enum('admin', 'profesional') [not null]
+  activo boolean [default: true]
+  created_at timestamp
+}
+
+Table perfiles_profesionales {
+  id int [pk, increment]
+  id_usuario int [not null]
+  categoria varchar(100) [not null]
+  descripcion text
+  direccion varchar(255)
+  foto_perfil varchar(255)
+}
+
+Table servicios {
+  id int [pk, increment]
+  id_profesional int [not null]
+  nombre varchar(100) [not null]
+  descripcion text
+  precio decimal(10,2)
+}
+
+Table imagenes_servicio {
+  id int [pk, increment]
+  id_servicio int [not null]
+  url varchar(255) [not null]
+}
+
+Table disponibilidad {
+  id int [pk, increment]
+  id_profesional int [not null]
+  dia_semana enum('lunes','martes','miercoles','jueves','viernes','sabado','domingo')
+  hora_inicio time
+  hora_fin time
+}
+
+Table reservas {
+  id int [pk, increment]
+  uuid varchar(20) [unique, not null]
+
+  id_profesional int [not null]
+  id_servicio int
+
+  fecha date [not null]
+  hora_inicio time [not null]
+  hora_fin time [not null]
+
+  estado enum('pendiente','confirmada','cancelada','reprogramada') [default: 'pendiente']
+
+  nombre_cliente varchar(100) [not null]
+  telefono_cliente varchar(20) [not null]
+
+  notas text
+
+  created_at timestamp
+}
+
+Table categorias {
+  id int [pk, increment]
+  nombre varchar(100) [not null]
+}
+
+Table profesional_categoria {
+  id int [pk, increment]
+  id_profesional int [not null]
+  id_categoria int [not null]
+}
+
+/* RELACIONES */
+
+Ref: perfiles_profesionales.id_usuario > usuarios.id
+
+Ref: servicios.id_profesional > usuarios.id
+
+Ref: imagenes_servicio.id_servicio > servicios.id
+
+Ref: disponibilidad.id_profesional > usuarios.id
+
+Ref: reservas.id_profesional > usuarios.id
+
+Ref: reservas.id_servicio > servicios.id
+
+Ref: profesional_categoria.id_profesional > usuarios.id
+
+Ref: profesional_categoria.id_categoria > categorias.id
