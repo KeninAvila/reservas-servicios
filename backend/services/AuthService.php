@@ -104,7 +104,7 @@ class AuthService
     {
         $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
 
-        if ($this->rateLimitService->checkAndRegisterLoginAttempt($ip) >= 10) {
+        if ($this->rateLimitService->checkAndRegisterLoginAttempt($ip) >= 30) {
             return [
                 "success" => false,
                 "message" => "Demasiados intentos desde esta dirección IP. Intente nuevamente más tarde."
@@ -258,8 +258,12 @@ class AuthService
 
     private function getBlockMinutes($attempts)
     {
+        if ($attempts < 4) {
+            return 0;
+        }
+
         $steps = [15, 30, 60, 720];
-        $index = min($attempts - 1, count($steps) - 1);
+        $index = min($attempts - 4, count($steps) - 1);
         return $steps[$index] ?? 720;
     }
 }
