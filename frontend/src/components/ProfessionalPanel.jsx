@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Plus, Trash2, Power, Edit2, MapPin, Calendar, Clock, Phone, CheckCircle, XCircle, Flag, ClipboardList, Settings2 } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Plus, Trash2, Power, Edit2, MapPin, Calendar, Clock, Phone, CheckCircle, XCircle, Flag, ClipboardList, Settings2, BarChart2, Share2, Check, ImagePlus, Loader2 } from 'lucide-react';
 import api from '../services/api';
 import ProfileSetupForm from './ProfileSetupForm';
 
@@ -74,6 +74,18 @@ export default function ProfessionalPanel({
   const [reservaFiltro,    setReservaFiltro]    = useState('PENDIENTE');
   const [reservaMsg,       setReservaMsg]       = useState('');
 
+  // ── Stats ─────────────────────────────────────────────────────────────────
+  const [stats,         setStats]         = useState(null);
+  const [loadingStats,  setLoadingStats]  = useState(false);
+  const [linkCopied,    setLinkCopied]    = useState(false);
+
+  // ── Banner upload ─────────────────────────────────────────────────────────
+  const [bannerFile,       setBannerFile]       = useState(null);
+  const [bannerPreview,    setBannerPreview]    = useState(null);
+  const [uploadingBanner,  setUploadingBanner]  = useState(false);
+  const [bannerMsg,        setBannerMsg]        = useState('');
+  const bannerInputRef = useRef(null);
+
   // ── Tabs ──────────────────────────────────────────────────────────────────
   const [panelTab, setPanelTab] = useState('agenda');
 
@@ -145,6 +157,13 @@ export default function ProfessionalPanel({
   useEffect(() => {
     if (panelTab === 'agenda' && hasProfile === true) {
       fetchReservas(reservaFiltro);
+    }
+    if (panelTab === 'stats' && !stats && !loadingStats) {
+      setLoadingStats(true);
+      api.get('/router.php?route=professional/stats')
+        .then(res => { if (res.data.success) setStats(res.data.data); })
+        .catch(() => {})
+        .finally(() => setLoadingStats(false));
     }
   }, [panelTab, hasProfile, reservaFiltro, fetchReservas]);
 
@@ -257,6 +276,37 @@ export default function ProfessionalPanel({
     } catch { setReservaMsg('Error de conexión.'); }
   }
 
+  // ── Banner upload ─────────────────────────────────────────────────────────
+  function handleBannerChange(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    setBannerFile(file);
+    setBannerPreview(URL.createObjectURL(file));
+    setBannerMsg('');
+  }
+
+  async function handleBannerUpload() {
+    if (!bannerFile) return;
+    setUploadingBanner(true);
+    setBannerMsg('');
+    try {
+      const form = new FormData();
+      form.append('banner', bannerFile);
+      const res = await api.post('/router.php?route=professional/banner/upload', form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      if (res.data.success) {
+        setProfileData(prev => ({ ...prev, banner: res.data.data.banner }));
+        setBannerFile(null);
+        setBannerPreview(null);
+        setBannerMsg('✓ Banner actualizado.');
+      } else {
+        setBannerMsg(res.data.message || 'Error al subir el banner.');
+      }
+    } catch { setBannerMsg('Error de conexión.'); }
+    finally { setUploadingBanner(false); setTimeout(() => setBannerMsg(''), 4000); }
+  }
+
   // ── Checks de estado ─────────────────────────────────────────────────────
   const statusColor = profStatus === 'activo' ? 'text-indigo-500'
     : profStatus === 'pendiente' ? 'text-amber-500'
@@ -296,7 +346,24 @@ export default function ProfessionalPanel({
             <span className={`text-[9px] font-bold uppercase ${statusColor}`}>● {profStatus}</span>
           </div>
         </div>
-        <button onClick={onLogout} className="text-[10px] font-bold text-red-500 bg-red-50 px-3 py-1.5 rounded-full hover:bg-red-100 transition-colors">Salir</button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              const profId = profileData?.id;
+              if (!profId) return;
+              const url = `${window.location.origin}${window.location.pathname}#/p/${profId}`;
+              navigator.clipboard.writeText(url).then(() => {
+                setLinkCopied(true);
+                setTimeout(() => setLinkCopied(false), 2000);
+              });
+            }}
+            className="flex items-center gap-1 text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1.5 rounded-full hover:bg-indigo-100 transition-colors"
+          >
+            {linkCopied ? <Check size={10} /> : <Share2 size={10} />}
+            {linkCopied ? '¡Copiado!' : 'Mi link'}
+          </button>
+          <button onClick={onLogout} className="text-[10px] font-bold text-red-500 bg-red-50 px-3 py-1.5 rounded-full hover:bg-red-100 transition-colors">Salir</button>
+        </div>
       </header>
 
       {/* Tabs principales */}
@@ -305,7 +372,10 @@ export default function ProfessionalPanel({
           <ClipboardList size={13} /> Reservas
         </button>
         <button onClick={() => setPanelTab('configuracion')} className={`flex-1 py-2 flex items-center justify-center gap-1.5 rounded-lg transition-all ${panelTab === 'configuracion' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
-          <Settings2 size={13} /> Configuración
+          <Settings2 size={13} /> Config
+        </button>
+        <button onClick={() => setPanelTab('stats')} className={`flex-1 py-2 flex items-center justify-center gap-1.5 rounded-lg transition-all ${panelTab === 'stats' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+          <BarChart2 size={13} /> Stats
         </button>
       </div>
 
@@ -426,6 +496,50 @@ export default function ProfessionalPanel({
                 </p>
                 <p className="text-slate-600">{profileData.descripcion}</p>
               </div>
+            </div>
+          )}
+
+          {/* Banner */}
+          {profileData && (
+            <div className="space-y-2">
+              <h3 className="text-sm font-bold text-slate-800">Banner del perfil</h3>
+              <div
+                className="relative h-32 rounded-2xl overflow-hidden cursor-pointer group border border-slate-200"
+                onClick={() => bannerInputRef.current?.click()}
+              >
+                {bannerPreview || profileData.banner ? (
+                  <img
+                    src={bannerPreview || profileData.banner}
+                    alt="banner"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-indigo-400 to-violet-500" />
+                )}
+                <div className="absolute inset-0 bg-black/30 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <ImagePlus size={20} className="text-white" />
+                  <span className="text-white text-[10px] font-bold mt-1">Cambiar banner</span>
+                </div>
+              </div>
+              <input
+                ref={bannerInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={handleBannerChange}
+              />
+              {bannerMsg && (
+                <p className={`text-xs font-semibold ${bannerMsg.startsWith('✓') ? 'text-indigo-600' : 'text-red-600'}`}>{bannerMsg}</p>
+              )}
+              {bannerFile && (
+                <button
+                  onClick={handleBannerUpload}
+                  disabled={uploadingBanner}
+                  className="w-full flex items-center justify-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-bold py-2.5 rounded-xl text-xs transition-colors"
+                >
+                  {uploadingBanner ? <><Loader2 size={13} className="animate-spin" /> Subiendo...</> : 'Guardar banner'}
+                </button>
+              )}
             </div>
           )}
 
@@ -611,6 +725,131 @@ export default function ProfessionalPanel({
             </div>
           </div>
 
+        </main>
+      )}
+
+      {/* ── TAB: ESTADÍSTICAS ── */}
+      {panelTab === 'stats' && (
+        <main className="flex-1 p-4 space-y-4 overflow-y-auto pb-8">
+          {loadingStats && (
+            <p className="text-xs text-slate-400 text-center py-10">Cargando estadísticas...</p>
+          )}
+          {!loadingStats && !stats && (
+            <p className="text-xs text-slate-400 text-center py-10">No hay datos disponibles.</p>
+          )}
+          {!loadingStats && stats && (() => {
+            const maxMes     = Math.max(...(stats.por_mes.map(m => m.cantidad)), 1);
+            const maxServicio = Math.max(...(stats.top_servicios.map(s => s.cantidad)), 1);
+            const maxHora    = Math.max(...(stats.horas_pico.map(h => h.cantidad)), 1);
+            const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+            return (
+              <>
+                {/* KPIs */}
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="bg-indigo-600 rounded-2xl p-3 text-white text-center">
+                    <p className="text-lg font-black leading-none">{stats.reservas_mes}</p>
+                    <p className="text-[9px] opacity-80 mt-1">Reservas este mes</p>
+                  </div>
+                  <div className="bg-violet-600 rounded-2xl p-3 text-white text-center">
+                    <p className="text-lg font-black leading-none">${Number(stats.ingresos_mes).toFixed(0)}</p>
+                    <p className="text-[9px] opacity-80 mt-1">Ingresos mes</p>
+                  </div>
+                  <div className="bg-slate-800 rounded-2xl p-3 text-white text-center">
+                    <p className="text-lg font-black leading-none">{stats.total_historico}</p>
+                    <p className="text-[9px] opacity-80 mt-1">Total histórico</p>
+                  </div>
+                </div>
+
+                {/* Reservas por mes */}
+                {stats.por_mes.length > 0 && (
+                  <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm">
+                    <h3 className="text-xs font-bold text-slate-700 mb-3">Reservas por mes</h3>
+                    <div className="flex items-end gap-1.5 h-20">
+                      {stats.por_mes.map(m => {
+                        const [, mes] = m.mes.split('-');
+                        const pct = Math.round((m.cantidad / maxMes) * 100);
+                        return (
+                          <div key={m.mes} className="flex-1 flex flex-col items-center gap-1">
+                            <span className="text-[8px] text-slate-500 font-bold">{m.cantidad}</span>
+                            <div
+                              className="w-full bg-indigo-500 rounded-t-sm transition-all"
+                              style={{ height: `${Math.max(pct, 8)}%` }}
+                            />
+                            <span className="text-[8px] text-slate-400">{MESES[Number(mes) - 1]}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Por estado */}
+                {stats.por_estado.length > 0 && (
+                  <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm">
+                    <h3 className="text-xs font-bold text-slate-700 mb-3">Reservas por estado</h3>
+                    <div className="space-y-2">
+                      {stats.por_estado.map(e => {
+                        const badge = ESTADO_BADGE[e.estado] || { label: e.estado, cls: 'bg-slate-100 text-slate-600' };
+                        return (
+                          <div key={e.estado} className="flex items-center justify-between">
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${badge.cls}`}>{badge.label}</span>
+                            <span className="text-xs font-bold text-slate-700">{e.cantidad}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Top servicios */}
+                {stats.top_servicios.length > 0 && (
+                  <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm">
+                    <h3 className="text-xs font-bold text-slate-700 mb-3">Servicios más solicitados</h3>
+                    <div className="space-y-2.5">
+                      {stats.top_servicios.map((s, i) => (
+                        <div key={i}>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs text-slate-700 truncate mr-2">{s.nombre}</span>
+                            <span className="text-[10px] font-bold text-indigo-600 shrink-0">{s.cantidad}</span>
+                          </div>
+                          <div className="w-full bg-slate-100 rounded-full h-1.5">
+                            <div
+                              className="bg-indigo-500 h-1.5 rounded-full transition-all"
+                              style={{ width: `${Math.round((s.cantidad / maxServicio) * 100)}%` }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Horas pico */}
+                {stats.horas_pico.length > 0 && (
+                  <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm">
+                    <h3 className="text-xs font-bold text-slate-700 mb-3">Horas más ocupadas</h3>
+                    <div className="flex items-end gap-1 h-16">
+                      {stats.horas_pico.map(h => {
+                        const pct = Math.round((h.cantidad / maxHora) * 100);
+                        const hNum = Number(h.hora);
+                        const label = `${hNum % 12 || 12}${hNum >= 12 ? 'p' : 'a'}`;
+                        return (
+                          <div key={h.hora} className="flex-1 flex flex-col items-center gap-0.5">
+                            <div
+                              className="w-full bg-violet-400 rounded-t-sm"
+                              style={{ height: `${Math.max(pct, 8)}%` }}
+                            />
+                            <span className="text-[7px] text-slate-400">{label}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </>
+            );
+          })()}
         </main>
       )}
     </div>

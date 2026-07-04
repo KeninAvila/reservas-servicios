@@ -117,6 +117,44 @@ class PublicService
         return ['success' => true, 'message' => 'Disponibilidad calculada.', 'data' => $slots];
     }
 
+    public function getProfesionalById(int $id): ?array
+    {
+        return $this->repo->getProfesionalById($id);
+    }
+
+    public function cancelReserva(string $uuid, int $horasMinimas = 2): array
+    {
+        $reserva = $this->repo->findReservaForCancel($uuid);
+
+        if (!$reserva) {
+            return ['success' => false, 'message' => 'Reserva no encontrada.'];
+        }
+
+        if (!in_array($reserva['estado'], ['PENDIENTE', 'ACEPTADA'], true)) {
+            return ['success' => false, 'message' => 'Esta reserva no se puede cancelar (estado: ' . $reserva['estado'] . ').'];
+        }
+
+        $fechaHoraReserva = new DateTime($reserva['fecha'] . ' ' . $reserva['hora']);
+        $ahora            = new DateTime();
+        $limiteCancel     = (clone $fechaHoraReserva)->modify("-{$horasMinimas} hours");
+
+        if ($ahora > $limiteCancel) {
+            return ['success' => false, 'message' => "Solo puedes cancelar con al menos {$horasMinimas} horas de anticipación."];
+        }
+
+        $estadoCanceladoId = $this->repo->getEstadoId('CANCELADA');
+        if (!$estadoCanceladoId) {
+            return ['success' => false, 'message' => 'Error interno.'];
+        }
+
+        $ok = $this->repo->cancelReservaByUuid($uuid, $estadoCanceladoId);
+        if (!$ok) {
+            return ['success' => false, 'message' => 'No se pudo cancelar la reserva.'];
+        }
+
+        return ['success' => true, 'message' => 'Reserva cancelada correctamente.'];
+    }
+
     public function getReservaByUuid(string $uuid): ?array
     {
         return $this->repo->findByUuid($uuid);

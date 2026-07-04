@@ -15,6 +15,42 @@ class ReservaService
         $this->audit = new AuditService($conn);
     }
 
+    public function responderByUuid(string $uuid, string $accion, int $userId): array
+    {
+        $reserva = $this->repo->findByUuidForProfesional($uuid, $userId);
+
+        if (!$reserva) {
+            return ['success' => false, 'message' => 'Reserva no encontrada o no pertenece a tu perfil.'];
+        }
+
+        if ($reserva['estado'] !== 'PENDIENTE') {
+            return ['success' => false, 'message' => 'Solo se pueden responder reservas pendientes (estado actual: ' . $reserva['estado'] . ').'];
+        }
+
+        $nuevoEstado = $accion === 'aceptar' ? 'ACEPTADA' : 'RECHAZADA';
+        $estadoId    = $this->repo->getEstadoId($nuevoEstado);
+
+        if (!$estadoId) {
+            return ['success' => false, 'message' => 'Error interno.'];
+        }
+
+        $ok = $this->repo->updateEstadoById($reserva['id'], $estadoId);
+
+        return $ok
+            ? ['success' => true,  'message' => 'Reserva ' . strtolower($nuevoEstado) . '.', 'estado' => $nuevoEstado]
+            : ['success' => false, 'message' => 'Error al actualizar la reserva.'];
+    }
+
+    public function getStats(int $userId): array
+    {
+        $profesionalId = $this->repo->getProfileIdByUserId($userId);
+        if (!$profesionalId) {
+            return ['success' => false, 'message' => 'Perfil profesional no encontrado.', 'data' => null];
+        }
+        $stats = $this->repo->getStatsByProfesionalId($profesionalId);
+        return ['success' => true, 'message' => 'Estadísticas obtenidas.', 'data' => $stats];
+    }
+
     public function listReservas(int $userId, ?string $estado = null): array
     {
         $profesionalId = $this->repo->getProfileIdByUserId($userId);

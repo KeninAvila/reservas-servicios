@@ -15,7 +15,7 @@ class PublicRepository
                        c.nombre AS categoria, c.id AS categoria_id,
                        pr.nombre AS provincia,
                        ci.nombre AS ciudad,
-                       pp.direccion_1, pp.descripcion, pp.foto_perfil, pp.telefono
+                       pp.direccion_1, pp.descripcion, pp.foto_perfil, pp.banner, pp.telefono
                 FROM profesionales_perfil pp
                 JOIN usuarios u ON pp.user_id = u.id
                 JOIN categorias c ON pp.categoria_id = c.id
@@ -117,7 +117,8 @@ class PublicRepository
         $sql = "SELECT r.uuid, r.cliente_nombre, r.fecha, r.hora, r.duracion_min, r.precio,
                        er.nombre AS estado,
                        s.nombre AS servicio_nombre,
-                       u.nombre AS profesional_nombre
+                       u.nombre AS profesional_nombre,
+                       pp.user_id AS profesional_user_id
                 FROM reservas r
                 JOIN estados_reserva er ON r.estado_id = er.id
                 JOIN servicios s ON r.servicio_id = s.id
@@ -139,6 +140,50 @@ class PublicRepository
         $stmt->bind_param("is", $profesionalId, $fecha);
         $stmt->execute();
         return (bool)$stmt->get_result()->fetch_assoc();
+    }
+
+    public function getProfesionalById(int $id): ?array
+    {
+        $sql = "SELECT pp.id AS profesional_id, pp.nombre_negocio, u.nombre, u.id AS user_id,
+                       c.nombre AS categoria, c.id AS categoria_id,
+                       pr.nombre AS provincia,
+                       ci.nombre AS ciudad,
+                       pp.direccion_1, pp.descripcion, pp.foto_perfil, pp.banner, pp.telefono,
+                       pp.google_maps_url
+                FROM profesionales_perfil pp
+                JOIN usuarios u ON pp.user_id = u.id
+                JOIN categorias c ON pp.categoria_id = c.id
+                JOIN provincias pr ON pp.provincia_id = pr.id
+                JOIN ciudades ci ON pp.ciudad_id = ci.id
+                WHERE pp.id = ? AND u.estado = 'ACTIVO'";
+
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("i", $id);
+        $stmt->execute();
+        $result = $stmt->get_result()->fetch_assoc();
+        return $result ?: null;
+    }
+
+    public function findReservaForCancel(string $uuid): ?array
+    {
+        $sql = "SELECT r.id, r.fecha, r.hora, r.expira_en, er.nombre AS estado
+                FROM reservas r
+                JOIN estados_reserva er ON r.estado_id = er.id
+                WHERE r.uuid = ?";
+
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("s", $uuid);
+        $stmt->execute();
+        $result = $stmt->get_result()->fetch_assoc();
+        return $result ?: null;
+    }
+
+    public function cancelReservaByUuid(string $uuid, int $estadoId): bool
+    {
+        $sql = "UPDATE reservas SET estado_id = ? WHERE uuid = ?";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("is", $estadoId, $uuid);
+        return $stmt->execute() && $stmt->affected_rows > 0;
     }
 
     public function createReserva(array $data): ?string

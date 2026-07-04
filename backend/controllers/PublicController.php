@@ -64,6 +64,39 @@ class PublicController
         }
     }
 
+    public function getProfesionalById(): void
+    {
+        $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+        if (!$id) {
+            Response::error('id del profesional es requerido');
+        }
+
+        $data = $this->service->getProfesionalById($id);
+        if (!$data) {
+            Response::error('Profesional no encontrado', 404);
+        }
+
+        Response::success('Profesional encontrado', $data);
+    }
+
+    public function cancelReserva(): void
+    {
+        $input = json_decode(file_get_contents('php://input'), true);
+        $uuid  = trim($input['uuid'] ?? '');
+
+        if (!$uuid) {
+            Response::error('uuid es requerido');
+        }
+
+        $result = $this->service->cancelReserva($uuid);
+
+        if ($result['success']) {
+            Response::success($result['message']);
+        } else {
+            Response::error($result['message']);
+        }
+    }
+
     public function getReservaByUuid(): void
     {
         $uuid = trim($_GET['uuid'] ?? '');

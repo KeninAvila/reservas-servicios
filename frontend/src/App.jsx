@@ -1,15 +1,31 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import ClientPanel       from './components/ClientPanel';
 import ProfessionalPanel from './components/ProfessionalPanel';
 import AdminPanel        from './components/AdminPanel';
 import LoginModal        from './components/LoginModal';
+import TrackingPage      from './components/TrackingPage';
 import api               from './services/api';
+
+function parseHash(hash) {
+  const prof = hash.match(/^#\/p\/(\d+)$/);
+  if (prof) return { type: 'profile', id: Number(prof[1]) };
+  const cita = hash.match(/^#\/cita\/([a-f0-9-]+)$/i);
+  if (cita) return { type: 'tracking', uuid: cita[1] };
+  return null;
+}
 
 export default function App() {
   const [currentRole,    setCurrentRole]    = useState('client');
   const [loggedInProfId, setLoggedInProfId] = useState(null);
   const [loggedInUser,   setLoggedInUser]   = useState(null);
   const [showLogin,      setShowLogin]      = useState(false);
+  const [hashRoute,      setHashRoute]      = useState(() => parseHash(window.location.hash));
+
+  useEffect(() => {
+    const onHashChange = () => setHashRoute(parseHash(window.location.hash));
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
 
   function handleLogin(role, profId, userData) {
     setCurrentRole(role);
@@ -27,16 +43,24 @@ export default function App() {
     setLoggedInUser(null);
   }
 
+  // #/cita/:uuid — tracking page (standalone, no app chrome)
+  if (hashRoute?.type === 'tracking') {
+    return <TrackingPage uuid={hashRoute.uuid} />;
+  }
+
+  // All other routes share the same app shell
   return (
     <div className="min-h-screen bg-slate-100 font-sans antialiased text-slate-800">
       <div className="max-w-md mx-auto bg-white min-h-screen shadow-lg flex flex-col border-x border-slate-200 relative">
 
-        {/* ── Client ── */}
+        {/* Client panel — also handles #/p/:id deep links via initialProfId */}
         {currentRole === 'client' && (
-          <ClientPanel onOpenLogin={() => setShowLogin(true)} />
+          <ClientPanel
+            onOpenLogin={() => setShowLogin(true)}
+            initialProfId={hashRoute?.type === 'profile' ? hashRoute.id : null}
+          />
         )}
 
-        {/* ── Professional ── */}
         {currentRole === 'professional' && (loggedInProfId || loggedInUser) && (
           <ProfessionalPanel
             professionals={[]}
@@ -49,12 +73,10 @@ export default function App() {
           />
         )}
 
-        {/* ── Admin ── */}
         {currentRole === 'admin' && (
           <AdminPanel onLogout={handleLogout} />
         )}
 
-        {/* Login modal */}
         {showLogin && (
           <LoginModal
             onLogin={handleLogin}
@@ -62,10 +84,6 @@ export default function App() {
           />
         )}
 
-        {/* Footer */}
-        <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-slate-950 text-slate-500 py-1 text-[9px] font-mono tracking-widest text-center uppercase border-t border-slate-900 select-none z-20">
-          Plataforma SERVI • Reserva en Tiempo Real
-        </div>
       </div>
     </div>
   );

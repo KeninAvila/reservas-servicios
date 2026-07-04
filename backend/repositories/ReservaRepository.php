@@ -19,6 +19,28 @@ class ReservaRepository
         return $result['id'] ?? null;
     }
 
+    public function findByUuidForProfesional(string $uuid, int $userId): ?array
+    {
+        $sql = "SELECT r.id, er.nombre AS estado
+                FROM reservas r
+                JOIN profesionales_perfil pp ON r.profesional_id = pp.id
+                JOIN estados_reserva er ON r.estado_id = er.id
+                WHERE r.uuid = ? AND pp.user_id = ?";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("si", $uuid, $userId);
+        $stmt->execute();
+        $result = $stmt->get_result()->fetch_assoc();
+        return $result ?: null;
+    }
+
+    public function updateEstadoById(int $id, int $estadoId): bool
+    {
+        $sql  = "UPDATE reservas SET estado_id = ? WHERE id = ?";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("ii", $estadoId, $id);
+        return $stmt->execute() && $stmt->affected_rows > 0;
+    }
+
     public function listByProfesionalId(int $profesionalId, ?string $estadoNombre = null): array
     {
         if ($estadoNombre) {
@@ -139,6 +161,96 @@ class ReservaRepository
         }
 
         return $this->conn->insert_id;
+    }
+
+    public function getStatsByProfesionalId(int $profesionalId): array
+    {
+        // Reservas del mes actual
+        $sql = "SELECT COUNT(*) AS total FROM reservas
+                WHERE profesional_id = ?
+                  AND MONTH(fecha) = MONTH(CURDATE())
+                  AND YEAR(fecha) = YEAR(CURDATE())";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("i", $profesionalId);
+        $stmt->execute();
+        $reservasMes = (int)$stmt->get_result()->fetch_assoc()['total'];
+
+        // Ingresos del mes (ACEPTADA + FINALIZADA)
+        $sql = "SELECT COALESCE(SUM(r.precio), 0) AS ingresos
+                FROM reservas r
+                JOIN estados_reserva er ON r.estado_id = er.id
+                WHERE r.profesional_id = ?
+                  AND er.nombre IN ('ACEPTADA', 'FINALIZADA')
+                  AND MONTH(r.fecha) = MONTH(CURDATE())
+                  AND YEAR(r.fecha) = YEAR(CURDATE())";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("i", $profesionalId);
+        $stmt->execute();
+        $ingresosMes = (float)$stmt->get_result()->fetch_assoc()['ingresos'];
+
+        // Reservas totales por estado
+        $sql = "SELECT er.nombre AS estado, COUNT(*) AS cantidad
+                FROM reservas r
+                JOIN estados_reserva er ON r.estado_id = er.id
+                WHERE r.profesional_id = ?
+                GROUP BY er.nombre";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("i", $profesionalId);
+        $stmt->execute();
+        $porEstado = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+
+        // Top 5 servicios más solicitados
+        $sql = "SELECT s.nombre, COUNT(*) AS cantidad
+                FROM reservas r
+                JOIN servicios s ON r.servicio_id = s.id
+                WHERE r.profesional_id = ?
+                GROUP BY s.id, s.nombre
+                ORDER BY cantidad DESC
+                LIMIT 5";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("i", $profesionalId);
+        $stmt->execute();
+        $topServicios = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+
+        // Horas más ocupadas
+        $sql = "SELECT HOUR(hora) AS hora, COUNT(*) AS cantidad
+                FROM reservas
+                WHERE profesional_id = ?
+                GROUP BY HOUR(hora)
+                ORDER BY hora ASC";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("i", $profesionalId);
+        $stmt->execute();
+        $horasPico = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+
+        // Reservas por mes (últimos 6 meses)
+        $sql = "SELECT DATE_FORMAT(fecha, '%Y-%m') AS mes, COUNT(*) AS cantidad
+                FROM reservas
+                WHERE profesional_id = ?
+                  AND fecha >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
+                GROUP BY mes
+                ORDER BY mes ASC";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("i", $profesionalId);
+        $stmt->execute();
+        $porMes = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+
+        // Total histórico de reservas
+        $sql = "SELECT COUNT(*) AS total FROM reservas WHERE profesional_id = ?";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("i", $profesionalId);
+        $stmt->execute();
+        $totalHistorico = (int)$stmt->get_result()->fetch_assoc()['total'];
+
+        return [
+            'reservas_mes'     => $reservasMes,
+            'ingresos_mes'     => $ingresosMes,
+            'total_historico'  => $totalHistorico,
+            'por_estado'       => $porEstado,
+            'top_servicios'    => $topServicios,
+            'horas_pico'       => $horasPico,
+            'por_mes'          => $porMes,
+        ];
     }
 
     public function getReservasByFecha(int $profesionalId, string $fecha): array

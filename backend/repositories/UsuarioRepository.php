@@ -249,7 +249,8 @@ class UsuarioRepository
         $sql = "UPDATE user_sessions SET revoked = 1 WHERE user_id = ?";
         $stmt = $this->conn->prepare($sql);
         if (!$stmt) {
-            die("SQL ERROR: " . $this->conn->error);
+            error_log('UsuarioRepository::invalidateUserSessions: ' . $this->conn->error);
+            return false;
         }
         $stmt->bind_param("i", $userId);
         return $stmt->execute();

@@ -34,8 +34,10 @@ $publicRoutes = [
     'public/servicios',
     'public/disponibilidad',
     'public/reserva',
+    'public/reserva/cancel',
     'public/tracking',
     'public/categorias',
+    'public/profesional',
 ];
 
 // ==========================
@@ -169,6 +171,18 @@ switch ($route) {
         require_once __DIR__ . '/profesional/excepcionDelete.php';
         break;
 
+    case 'professional/stats':
+        require_once __DIR__ . '/profesional/stats.php';
+        break;
+
+    case 'professional/reserva/responder':
+        require_once __DIR__ . '/profesional/reservaResponderUuid.php';
+        break;
+
+    case 'professional/banner/upload':
+        require_once __DIR__ . '/profesional/bannerUpload.php';
+        break;
+
     // --------------------------
     // ADMIN (requiere id_rol=1)
     // --------------------------
@@ -221,6 +235,14 @@ switch ($route) {
 
     case 'public/categorias':
         require_once __DIR__ . '/public/categorias.php';
+        break;
+
+    case 'public/profesional':
+        require_once __DIR__ . '/public/profesional.php';
+        break;
+
+    case 'public/reserva/cancel':
+        require_once __DIR__ . '/public/reservaCancel.php';
         break;
 
     // --------------------------

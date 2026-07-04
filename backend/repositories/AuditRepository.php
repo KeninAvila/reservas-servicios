@@ -11,7 +11,7 @@ class AuditRepository
 
     public function insert(int $userId, string $accion, string $tabla, ?int $registroId, ?string $detalles, string $ip): void
     {
-        $sql = "INSERT INTO auditoria (usuario_id, accion, tabla_afectada, registro_id, detalles, ip)
+        $sql = "INSERT INTO auditoria (user_id, accion, tabla_afectada, registro_id, detalles, ip_address)
                 VALUES (?, ?, ?, ?, ?, ?)";
         $stmt = $this->conn->prepare($sql);
         if (!$stmt) return;
