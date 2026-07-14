@@ -80,7 +80,7 @@ export default function ClientPanel({ onOpenLogin, initialProfId = null }) {
     const matchSearch = p.nombre.toLowerCase().includes(q) ||
                         p.categoria.toLowerCase().includes(q) ||
                         (p.descripcion || '').toLowerCase().includes(q);
-    const matchCat = !selectedCat || p.categoria_id === selectedCat;
+    const matchCat = !selectedCat || p.categoria_id == selectedCat;
     return matchSearch && matchCat;
   });
 
