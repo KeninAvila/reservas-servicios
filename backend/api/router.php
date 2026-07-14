@@ -30,6 +30,7 @@ $publicRoutes = [
     'auth/resendVerification',
     'auth/forgotPassword',
     'auth/resetPassword',
+    'auth/google',
     'public/profesionales',
     'public/servicios',
     'public/disponibilidad',
@@ -90,6 +91,10 @@ switch ($route) {
 
     case 'auth/resetPassword':
         require_once __DIR__ . '/auth/resetPassword.php';
+        break;
+
+    case 'auth/google':
+        require_once __DIR__ . '/auth/google.php';
         break;
 
     // --------------------------

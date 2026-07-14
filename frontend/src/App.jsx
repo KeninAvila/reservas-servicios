@@ -4,9 +4,15 @@ import ProfessionalPanel from './components/ProfessionalPanel';
 import AdminPanel        from './components/AdminPanel';
 import LoginModal        from './components/LoginModal';
 import TrackingPage      from './components/TrackingPage';
+import VerifyEmailPage   from './components/VerifyEmailPage';
+import ResetPasswordPage from './components/ResetPasswordPage';
 import api               from './services/api';
 
 function parseHash(hash) {
+  const verify = hash.match(/^#\/verificar\?token=([^&]+)$/);
+  if (verify) return { type: 'verify', token: decodeURIComponent(verify[1]) };
+  const reset = hash.match(/^#\/cambiar-contrasena\?token=([^&]+)$/);
+  if (reset) return { type: 'reset-password', token: decodeURIComponent(reset[1]) };
   const prof = hash.match(/^#\/p\/(\d+)$/);
   if (prof) return { type: 'profile', id: Number(prof[1]) };
   const cita = hash.match(/^#\/cita\/([a-f0-9-]+)$/i);
@@ -46,6 +52,14 @@ export default function App() {
   // #/cita/:uuid — tracking page (standalone, no app chrome)
   if (hashRoute?.type === 'tracking') {
     return <TrackingPage uuid={hashRoute.uuid} />;
+  }
+
+  if (hashRoute?.type === 'verify') {
+    return <VerifyEmailPage token={hashRoute.token} />;
+  }
+
+  if (hashRoute?.type === 'reset-password') {
+    return <ResetPasswordPage token={hashRoute.token} />;
   }
 
   // All other routes share the same app shell

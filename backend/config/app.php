@@ -6,6 +6,9 @@ define('APP_NAME', 'Reservas Servicios');
 
 define('APP_URL', 'http://localhost/appweb/backend');
 
+// URL pública del frontend usada en enlaces enviados por correo.
+define('FRONTEND_URL', 'http://localhost:5173');
+
 define('APP_ENV', 'development');
 
 define('EMAIL_VERIFICATION_EXPIRATION', 24); // horas

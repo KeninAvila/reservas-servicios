@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { X, Mail, Lock, Briefcase, Eye, EyeOff } from 'lucide-react';
 import api from '../services/api';
+import TurnstileWidget from './TurnstileWidget';
+import GoogleSignInButton from './GoogleSignInButton';
 
 const DEFAULT_HOURS = [
   { day: 'Lunes',     enabled: true,  start: '09:00', end: '18:00' },
@@ -31,16 +33,50 @@ export default function LoginModal({ onLogin, onClose }) {
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
+  const [needsVerification, setNeedsVerification] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendMessage, setResendMessage] = useState('');
 
   // Register
   const [regName, setRegName] = useState('');
   const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [website, setWebsite] = useState('');
+  const [turnstileToken, setTurnstileToken] = useState('');
+  const [googleCredential, setGoogleCredential] = useState('');
+  const [googlePassword, setGooglePassword] = useState('');
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [googleError, setGoogleError] = useState('');
+
+  async function handleGoogleCredential(credential, password) {
+    setGoogleLoading(true);
+    setGoogleError('');
+    try {
+      const { data } = await api.post('/router.php?route=auth/google', { credential, ...(password ? { password } : {}) });
+      if (data.success) {
+        const usuario = normalizarUsuario(data.data);
+        onLogin(usuario.id_rol === 1 ? 'admin' : 'professional', usuario.id, usuario);
+        return;
+      }
+      if (data.errors?.requires_link) {
+        setGoogleCredential(credential);
+        setGoogleError(data.message);
+      } else {
+        setGoogleError(data.message || 'No se pudo acceder con Google.');
+      }
+    } catch {
+      setGoogleError('No se pudo conectar con el servidor.');
+    } finally {
+      setGoogleLoading(false);
+    }
+  }
 
   async function handleProfLogin(e) {
     e.preventDefault();
     setLoginError('');
+    setNeedsVerification(false);
+    setResendMessage('');
     setLoading(true);
     try {
       const res = await api.post('/router.php?route=auth/login', {
@@ -52,12 +88,37 @@ export default function LoginModal({ onLogin, onClose }) {
         const rol = usuario.id_rol === 1 ? 'admin' : 'professional';
         onLogin(rol, usuario.id, usuario);
       } else {
-        setLoginError(res.data.message || 'Error al iniciar sesión.');
+        const message = res.data.message || 'Error al iniciar sesión.';
+        setLoginError(message);
+        setNeedsVerification(message.toLowerCase().includes('verificar'));
       }
     } catch {
       setLoginError('Error de conexión. Verifica que el servidor esté activo.');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleResendVerification(email) {
+    const targetEmail = email.trim();
+    if (!targetEmail) {
+      setResendMessage('Ingresa tu correo electrónico.');
+      return;
+    }
+
+    setResendLoading(true);
+    setResendMessage('');
+    try {
+      const { data } = await api.post('/router.php?route=auth/resendVerification', {
+        email: targetEmail,
+        website,
+        turnstile_token: turnstileToken,
+      });
+      setResendMessage(data.message || (data.success ? 'Correo reenviado correctamente.' : 'No se pudo reenviar el correo.'));
+    } catch {
+      setResendMessage('No se pudo conectar con el servidor.');
+    } finally {
+      setResendLoading(false);
     }
   }
 
@@ -88,6 +149,8 @@ export default function LoginModal({ onLogin, onClose }) {
         nombre: regName.trim(),
         email: regEmail.trim(),
         password: regPassword,
+        website,
+        turnstile_token: turnstileToken,
       });
       if (res.data.success) {
         setAuthView('verify');
@@ -130,6 +193,16 @@ export default function LoginModal({ onLogin, onClose }) {
                   Revisa tu correo electrónico y haz clic en el enlace de verificación antes de iniciar sesión.
                 </p>
               </div>
+              <TurnstileWidget onToken={setTurnstileToken} />
+              <button
+                type="button"
+                disabled={resendLoading}
+                onClick={() => handleResendVerification(regEmail)}
+                className="w-full border border-emerald-200 text-emerald-700 hover:bg-emerald-50 disabled:opacity-60 font-semibold py-3 rounded-xl text-xs transition-colors"
+              >
+                {resendLoading ? 'Reenviando...' : 'Reenviar correo de verificación'}
+              </button>
+              {resendMessage && <p className="text-xs text-slate-600">{resendMessage}</p>}
               <button
                 onClick={() => { setAuthView('login'); setLoginError(''); setRegName(''); setRegEmail(''); setRegPassword(''); }}
                 className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-xl text-xs transition-colors"
@@ -159,7 +232,38 @@ export default function LoginModal({ onLogin, onClose }) {
               </div>
 
               {loginError && (
-                <div className="mb-4 px-3 py-2 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl">{loginError}</div>
+                <div className="mb-4 px-3 py-2 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl">
+                  <p>{loginError}</p>
+                  {needsVerification && (
+                    <>
+                      <TurnstileWidget onToken={setTurnstileToken} />
+                      <button
+                        type="button"
+                        disabled={resendLoading}
+                        onClick={() => handleResendVerification(loginEmail)}
+                        className="mt-2 font-bold underline disabled:opacity-60"
+                      >
+                        {resendLoading ? 'Reenviando...' : 'Reenviar correo de verificación'}
+                      </button>
+                    </>
+                  )}
+                  {resendMessage && <p className="mt-2 text-slate-600">{resendMessage}</p>}
+                </div>
+              )}
+
+              <div className="mb-4">
+                <GoogleSignInButton onCredential={credential => handleGoogleCredential(credential)} />
+                {googleLoading && <p className="text-xs text-center text-slate-500 mt-2">Conectando con Google...</p>}
+                {googleError && <p className="text-xs text-center text-red-600 mt-2">{googleError}</p>}
+              </div>
+              <div className="flex items-center gap-3 mb-4 text-[10px] text-slate-400"><span className="h-px bg-slate-200 flex-1" /><span>o continúa con correo</span><span className="h-px bg-slate-200 flex-1" /></div>
+
+              {googleCredential && (
+                <form onSubmit={e => { e.preventDefault(); handleGoogleCredential(googleCredential, googlePassword); }} className="mb-4 p-3 bg-indigo-50 border border-indigo-100 rounded-xl space-y-2">
+                  <p className="text-xs text-slate-600">Esta cuenta ya existe. Introduce su contraseña para vincularla con Google.</p>
+                  <input type="password" required value={googlePassword} onChange={e => setGooglePassword(e.target.value)} placeholder="Contraseña actual" className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-xs" />
+                  <button disabled={googleLoading} className="w-full py-2.5 bg-indigo-600 text-white rounded-lg text-xs font-bold disabled:opacity-60">Vincular y continuar</button>
+                </form>
               )}
 
               {authView === 'login' ? (
@@ -190,6 +294,16 @@ export default function LoginModal({ onLogin, onClose }) {
               ) : (
                 <form onSubmit={handleRegister} className="space-y-3">
                   <input
+                    type="text"
+                    value={website}
+                    onChange={e => setWebsite(e.target.value)}
+                    name="website"
+                    tabIndex="-1"
+                    autoComplete="off"
+                    aria-hidden="true"
+                    className="absolute -left-[10000px] w-px h-px opacity-0"
+                  />
+                  <input
                     type="text" required placeholder="Nombre completo"
                     value={regName} onChange={e => setRegName(e.target.value)}
                     className="w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-xs focus:ring-1 focus:ring-emerald-500 focus:outline-none placeholder:text-slate-400"
@@ -209,6 +323,7 @@ export default function LoginModal({ onLogin, onClose }) {
                       {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
                     </button>
                   </div>
+                  <TurnstileWidget onToken={setTurnstileToken} />
                   <button
                     type="submit" disabled={loading}
                     className="w-full bg-slate-950 hover:bg-slate-900 disabled:opacity-60 text-white font-bold py-3.5 rounded-xl text-xs shadow-md transition-all"

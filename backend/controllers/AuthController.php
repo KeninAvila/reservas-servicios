@@ -32,7 +32,7 @@ class AuthController
             Response::error("Email no válido");
         }
 
-        $result = $this->authService->register($nombre, $email, $password);
+        $result = $this->authService->register($nombre, $email, $password, is_array($data) ? $data : []);
 
         if (!$result['success']) {
             Response::error($result['message']);
@@ -125,7 +125,7 @@ class AuthController
             Response::error("Email no válido");
         }
 
-        $result = $this->authService->resendVerification($email);
+        $result = $this->authService->resendVerification($email, is_array($data) ? $data : []);
 
         if (!$result['success']) {
             Response::error($result['message']);

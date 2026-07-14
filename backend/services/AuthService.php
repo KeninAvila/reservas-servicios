@@ -6,6 +6,7 @@ require_once __DIR__ . '/../services/EmailService.php';
 require_once __DIR__ . '/../services/TokenService.php';
 require_once __DIR__ . '/../services/RateLimitService.php';
 require_once __DIR__ . '/../services/SessionService.php';
+require_once __DIR__ . '/../services/AbuseProtectionService.php';
 
 class AuthService
 {
@@ -14,6 +15,7 @@ class AuthService
     private $tokenService;
     private $rateLimitService;
     private $sessionService;
+    private $abuseProtection;
 
     public function __construct($conn)
     {
@@ -21,13 +23,27 @@ class AuthService
         $this->tokenService = new TokenService();
         $this->rateLimitService = new RateLimitService($conn);
         $this->sessionService = new SessionService();
+        $this->abuseProtection = new AbuseProtectionService($conn);
     }
 
     // =========================
     // REGISTRO DE USUARIO
     // =========================
-    public function register($nombre, $email, $password)
+    public function register($nombre, $email, $password, array $context = [])
     {
+        if (!$this->abuseProtection->isHoneypotClean($context)) {
+            return ['success' => false, 'message' => 'No se pudo procesar la solicitud.'];
+        }
+        if (!$this->abuseProtection->verifyTurnstile($context['turnstile_token'] ?? null)) {
+            return ['success' => false, 'message' => 'No se pudo validar que eres una persona.'];
+        }
+        $limit = $this->abuseProtection->check('register', $email, [
+            ['ip', 5, 60], ['ip', 20, 1440], ['identifier', 3, 1440]
+        ]);
+        if (!$limit['allowed']) return ['success' => false, 'message' => $limit['message']];
+        $this->abuseProtection->record('register', $limit['ip'], $limit['hash']);
+        $this->abuseProtection->cleanupPendingAccounts();
+
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             return [
                 "success" => false,
@@ -44,8 +60,9 @@ class AuthService
 
         if ($this->usuarioRepository->emailExists($email)) {
             return [
-                "success" => false,
-                "message" => "El correo ya está registrado"
+                "success" => true,
+                "message" => "Si el correo puede registrarse, recibirás un enlace de verificación.",
+                "data" => []
             ];
         }
 
@@ -197,8 +214,20 @@ class AuthService
             ]
         ];
     }
-    public function resendVerification($email)
+    public function resendVerification($email, array $context = [])
     {
+        if (!$this->abuseProtection->isHoneypotClean($context)) {
+            return ['success' => true, 'message' => 'Si la cuenta existe, recibirás un correo de verificación.'];
+        }
+        if (!$this->abuseProtection->verifyTurnstile($context['turnstile_token'] ?? null)) {
+            return ['success' => false, 'message' => 'No se pudo validar que eres una persona.'];
+        }
+        $limit = $this->abuseProtection->check('resend_verification', $email, [
+            ['identifier', 1, 2], ['identifier', 5, 1440], ['ip', 20, 1440]
+        ]);
+        if (!$limit['allowed']) return ['success' => false, 'message' => $limit['message']];
+        $this->abuseProtection->record('resend_verification', $limit['ip'], $limit['hash']);
+
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             return [
                 "success" => false,
@@ -210,15 +239,15 @@ class AuthService
 
         if (!$user) {
             return [
-                "success" => false,
-                "message" => "No existe una cuenta asociada a ese correo electrónico."
+                "success" => true,
+                "message" => "Si la cuenta existe, recibirás un correo de verificación."
             ];
         }
 
         if (!empty($user['email_verificado']) && (int)$user['email_verificado'] === 1) {
             return [
-                "success" => false,
-                "message" => "El usuario ya está verificado"
+                "success" => true,
+                "message" => "Si la cuenta existe, recibirás un correo de verificación."
             ];
         }
 
@@ -239,7 +268,7 @@ class AuthService
 
         return [
             "success" => true,
-            "message" => "Se ha reenviado el correo de verificación."
+            "message" => "Si la cuenta existe, recibirás un correo de verificación."
         ];
     }
 

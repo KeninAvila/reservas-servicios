@@ -5,16 +5,19 @@ require_once __DIR__ . '/../validators/PasswordValidator.php';
 require_once __DIR__ . '/../services/EmailService.php';
 require_once __DIR__ . '/../security/Security.php';
 require_once __DIR__ . '/../services/TokenService.php';
+require_once __DIR__ . '/../services/AbuseProtectionService.php';
 
 class PasswordService
 {
     private $usuarioRepository;
     private $tokenService;
+    private $abuseProtection;
 
     public function __construct($conn)
     {
         $this->usuarioRepository = new UsuarioRepository($conn);
         $this->tokenService = new TokenService();
+        $this->abuseProtection = new AbuseProtectionService($conn);
     }
 
     public function forgotPassword($data)
@@ -26,12 +29,23 @@ class PasswordService
         }
 
         $email = trim($data['email'] ?? '');
+        if (!$this->abuseProtection->isHoneypotClean($data)) {
+            return ['success' => true, 'message' => 'Si la cuenta existe, recibirás un enlace para restablecer la contraseña.'];
+        }
+        if (!$this->abuseProtection->verifyTurnstile($data['turnstile_token'] ?? null)) {
+            return ['success' => false, 'message' => 'No se pudo validar que eres una persona.'];
+        }
+        $limit = $this->abuseProtection->check('forgot_password', $email, [
+            ['identifier', 1, 2], ['identifier', 3, 60], ['ip', 20, 1440]
+        ]);
+        if (!$limit['allowed']) return ['success' => false, 'message' => $limit['message']];
+        $this->abuseProtection->record('forgot_password', $limit['ip'], $limit['hash']);
         $user = $this->usuarioRepository->findByEmail($email);
 
         if (!$user) {
             return [
-                "success" => false,
-                "message" => "No existe una cuenta asociada a ese correo electrónico."
+                "success" => true,
+                "message" => "Si la cuenta existe, recibirás un enlace para restablecer la contraseña."
             ];
         }
 
@@ -54,7 +68,7 @@ class PasswordService
 
         return [
             "success" => true,
-            "message" => "Se ha enviado un enlace para restablecer la contraseña."
+            "message" => "Si la cuenta existe, recibirás un enlace para restablecer la contraseña."
         ];
     }
 
