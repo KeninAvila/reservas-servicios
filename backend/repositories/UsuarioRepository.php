@@ -25,6 +25,29 @@ class UsuarioRepository
         return $stmt->get_result()->fetch_assoc();
     }
 
+    public function findByGoogleSub(string $googleSub)
+    {
+        $stmt = $this->conn->prepare('SELECT * FROM usuarios WHERE google_sub = ? LIMIT 1');
+        $stmt->bind_param('s', $googleSub);
+        $stmt->execute();
+        return $stmt->get_result()->fetch_assoc();
+    }
+
+    public function linkGoogleIdentity(int $userId, string $googleSub): bool
+    {
+        $stmt = $this->conn->prepare('UPDATE usuarios SET google_sub = ?, email_verificado = 1, verification_token = NULL, verification_expires = NULL WHERE id = ? AND google_sub IS NULL');
+        $stmt->bind_param('si', $googleSub, $userId);
+        return $stmt->execute() && $stmt->affected_rows === 1;
+    }
+
+    public function createGoogleUser(string $name, string $email, string $googleSub, string $passwordHash): ?int
+    {
+        $stmt = $this->conn->prepare("INSERT INTO usuarios (nombre, email, google_sub, password, id_rol, estado, email_verificado) VALUES (?, ?, ?, ?, 2, 'ACTIVO', 1)");
+        $stmt->bind_param('ssss', $name, $email, $googleSub, $passwordHash);
+        if (!$stmt->execute()) return null;
+        return (int)$this->conn->insert_id;
+    }
+
     // =========================
     // OBTENER USUARIO POR ID
     // =========================
@@ -249,7 +272,8 @@ class UsuarioRepository
         $sql = "UPDATE user_sessions SET revoked = 1 WHERE user_id = ?";
         $stmt = $this->conn->prepare($sql);
         if (!$stmt) {
-            die("SQL ERROR: " . $this->conn->error);
+            error_log('UsuarioRepository::invalidateUserSessions: ' . $this->conn->error);
+            return false;
         }
         $stmt->bind_param("i", $userId);
         return $stmt->execute();

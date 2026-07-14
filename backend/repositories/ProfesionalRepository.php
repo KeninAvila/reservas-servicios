@@ -30,18 +30,17 @@ class ProfesionalRepository
         // Verificar si existe
         $check = $this->findByUserId($userId);
 
-        var_dump($check); // Depuración: mostrar el resultado de la verificación
-
         if ($check) {
 
-            $sql = "UPDATE profesionales_perfil 
-                    SET categoria_id=?, provincia_id=?, ciudad_id=?, 
-                        direccion_1=?, direccion_2=?, google_maps_url=?, descripcion=?
+            $sql = "UPDATE profesionales_perfil
+                    SET nombre_negocio=?, categoria_id=?, provincia_id=?, ciudad_id=?,
+                        direccion_1=?, direccion_2=?, google_maps_url=?, descripcion=?, telefono=?
                     WHERE user_id=?";
 
             $stmt = $this->conn->prepare($sql);
             $stmt->bind_param(
-                "iiissssi",
+                "siiisssssi",
+                $data['nombre_negocio'],
                 $data['categoria_id'],
                 $data['provincia_id'],
                 $data['ciudad_id'],
@@ -49,25 +48,28 @@ class ProfesionalRepository
                 $data['direccion_2'],
                 $data['google_maps_url'],
                 $data['descripcion'],
+                $data['telefono'],
                 $userId
             );
         } else {
 
-            $sql = "INSERT INTO profesionales_perfil 
-                    (user_id, categoria_id, provincia_id, ciudad_id, direccion_1, direccion_2, google_maps_url, descripcion)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+            $sql = "INSERT INTO profesionales_perfil
+                    (user_id, nombre_negocio, categoria_id, provincia_id, ciudad_id, direccion_1, direccion_2, google_maps_url, descripcion, telefono)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
             $stmt = $this->conn->prepare($sql);
             $stmt->bind_param(
-                "iiiissss",
+                "isiiiissss",
                 $userId,
+                $data['nombre_negocio'],
                 $data['categoria_id'],
                 $data['provincia_id'],
                 $data['ciudad_id'],
                 $data['direccion_1'],
                 $data['direccion_2'],
                 $data['google_maps_url'],
-                $data['descripcion']
+                $data['descripcion'],
+                $data['telefono']
             );
         }
 

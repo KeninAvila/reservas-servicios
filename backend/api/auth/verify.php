@@ -1,7 +1,7 @@
 <?php
 
-require_once "../../config/db.php";
-require_once "../../repositories/UsuarioRepository.php";
+require_once __DIR__ . '/../../config/db.php';
+require_once __DIR__ . '/../../repositories/UsuarioRepository.php';
 
 class Verify
 {

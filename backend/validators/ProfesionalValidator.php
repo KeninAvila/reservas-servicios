@@ -4,6 +4,20 @@ class ProfesionalValidator
 {
     public static function validate(array $data): array
     {
+        $nombreNegocio = trim($data['nombre_negocio'] ?? '');
+        if ($nombreNegocio === '') {
+            return [
+                'success' => false,
+                'message' => 'El nombre del negocio es obligatorio.'
+            ];
+        }
+        if (strlen($nombreNegocio) > 100) {
+            return [
+                'success' => false,
+                'message' => 'El nombre del negocio no puede superar los 100 caracteres.'
+            ];
+        }
+
         if (!isset($data['categoria_id']) || $data['categoria_id'] === '') {
             return [
                 'success' => false,
@@ -51,9 +65,18 @@ class ProfesionalValidator
 
         $direccion2 = trim($data['direccion_2'] ?? '');
 
+        $telefono = trim($data['telefono'] ?? '');
+        if ($telefono !== '' && strlen($telefono) > 20) {
+            return [
+                'success' => false,
+                'message' => 'El teléfono no puede superar los 20 caracteres.'
+            ];
+        }
+
         return [
             'success' => true,
             'data' => [
+                'nombre_negocio' => $nombreNegocio,
                 'categoria_id' => (int)$data['categoria_id'],
                 'provincia_id' => (int)$data['provincia_id'],
                 'ciudad_id' => (int)$data['ciudad_id'],
@@ -61,6 +84,7 @@ class ProfesionalValidator
                 'descripcion' => $descripcion,
                 'direccion_1' => $direccion1,
                 'direccion_2' => $direccion2,
+                'telefono' => $telefono,
             ]
         ];
     }
