@@ -1,8 +1,11 @@
 import { useState } from 'react';
-import { X, Mail, Lock, Briefcase, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import api from '../services/api';
 import TurnstileWidget from './TurnstileWidget';
 import GoogleSignInButton from './GoogleSignInButton';
+import Modal from './ui/Modal';
+import Button from './ui/Button';
+import { Input, ErrorNote } from './ui/Field';
 
 const DEFAULT_HOURS = [
   { day: 'Lunes',     enabled: true,  start: '09:00', end: '18:00' },
@@ -19,7 +22,7 @@ function normalizarUsuario(backendUser) {
   return {
     ...backendUser,
     status: estadoMap[backendUser.estado] ?? 'activo',
-    avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(backendUser.nombre)}&background=10b981&color=fff&size=128`,
+    avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(backendUser.nombre)}&background=0f766e&color=f7f7f5&size=256`,
     services: [],
     hours: DEFAULT_HOURS,
   };
@@ -165,181 +168,166 @@ export default function LoginModal({ onLogin, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div className="bg-white w-full sm:max-w-sm rounded-t-3xl sm:rounded-2xl shadow-2xl animate-fadeIn max-h-[92vh] overflow-y-auto">
+    <Modal onClose={onClose} kicker="Área profesional" title="Accede a tu cuenta">
 
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-slate-100">
-          <div className="flex items-center gap-2">
-            <Briefcase size={15} className="text-emerald-600" />
-            <h2 className="font-bold text-slate-900 text-base">Acceso Profesional</h2>
+      {/* Pantalla de verificación post-registro */}
+      {authView === 'verify' && (
+        <div className="text-center py-4 space-y-5 animate-fadeIn">
+          <span className="inline-flex w-14 h-14 rounded-full bg-brand-50 text-brand-600 items-center justify-center">
+            <Mail size={24} strokeWidth={1.75} />
+          </span>
+          <div>
+            <p className="font-display font-semibold text-xl text-ink">Revisa tu correo</p>
+            <p className="text-sm text-ink/55 mt-1.5 leading-relaxed max-w-xs mx-auto">
+              Tu cuenta fue creada. Haz clic en el enlace de verificación que te enviamos antes de iniciar sesión.
+            </p>
           </div>
-          <button onClick={onClose} className="p-1.5 hover:bg-slate-100 rounded-full text-slate-400">
-            <X size={18} />
-          </button>
+          <TurnstileWidget onToken={setTurnstileToken} />
+          <div className="space-y-3">
+            <Button
+              variant="secondary" full
+              loading={resendLoading}
+              onClick={() => handleResendVerification(regEmail)}
+            >
+              {resendLoading ? 'Reenviando…' : 'Reenviar correo de verificación'}
+            </Button>
+            {resendMessage && <p className="text-xs text-ink/60">{resendMessage}</p>}
+            <Button
+              full
+              onClick={() => { setAuthView('login'); setLoginError(''); setRegName(''); setRegEmail(''); setRegPassword(''); }}
+            >
+              Volver al inicio de sesión
+            </Button>
+          </div>
         </div>
+      )}
 
-        <div className="px-5 pb-6 pt-4">
+      {/* Login / Register */}
+      {authView !== 'verify' && (
+        <>
+          {/* Segmented control */}
+          <div className="flex bg-cream p-1 mb-5 rounded-full gap-1 text-xs font-semibold">
+            <button
+              onClick={() => { setAuthView('login'); setLoginError(''); }}
+              className={`flex-1 py-2.5 text-center rounded-full transition-all duration-200 ${
+                authView === 'login' ? 'bg-white text-ink shadow-soft' : 'text-ink/45 hover:text-ink/70'
+              }`}
+            >
+              Iniciar sesión
+            </button>
+            <button
+              onClick={() => { setAuthView('register'); setLoginError(''); }}
+              className={`flex-1 py-2.5 text-center rounded-full transition-all duration-200 ${
+                authView === 'register' ? 'bg-white text-ink shadow-soft' : 'text-ink/45 hover:text-ink/70'
+              }`}
+            >
+              Registrarse
+            </button>
+          </div>
 
-          {/* Pantalla de verificación post-registro */}
-          {authView === 'verify' && (
-            <div className="text-center py-4 space-y-4">
-              <div className="w-14 h-14 bg-emerald-100 rounded-full flex items-center justify-center mx-auto">
-                <Mail size={26} className="text-emerald-600" />
-              </div>
-              <div>
-                <p className="font-bold text-slate-900 text-sm">Cuenta creada con éxito</p>
-                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                  Revisa tu correo electrónico y haz clic en el enlace de verificación antes de iniciar sesión.
-                </p>
-              </div>
-              <TurnstileWidget onToken={setTurnstileToken} />
-              <button
-                type="button"
-                disabled={resendLoading}
-                onClick={() => handleResendVerification(regEmail)}
-                className="w-full border border-emerald-200 text-emerald-700 hover:bg-emerald-50 disabled:opacity-60 font-semibold py-3 rounded-xl text-xs transition-colors"
-              >
-                {resendLoading ? 'Reenviando...' : 'Reenviar correo de verificación'}
-              </button>
-              {resendMessage && <p className="text-xs text-slate-600">{resendMessage}</p>}
-              <button
-                onClick={() => { setAuthView('login'); setLoginError(''); setRegName(''); setRegEmail(''); setRegPassword(''); }}
-                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-xl text-xs transition-colors"
-              >
-                Volver al inicio de sesión
-              </button>
+          {loginError && (
+            <div className="mb-4">
+              <ErrorNote>
+                <p>{loginError}</p>
+                {needsVerification && (
+                  <>
+                    <TurnstileWidget onToken={setTurnstileToken} />
+                    <button
+                      type="button"
+                      disabled={resendLoading}
+                      onClick={() => handleResendVerification(loginEmail)}
+                      className="mt-2 font-semibold underline underline-offset-2 disabled:opacity-60"
+                    >
+                      {resendLoading ? 'Reenviando…' : 'Reenviar correo de verificación'}
+                    </button>
+                  </>
+                )}
+                {resendMessage && <p className="mt-2 text-ink/60">{resendMessage}</p>}
+              </ErrorNote>
             </div>
           )}
 
-          {/* Login / Register */}
-          {authView !== 'verify' && (
-            <>
-              {/* Sub-tabs */}
-              <div className="flex bg-slate-100 p-1 mb-5 rounded-lg gap-1 text-xs font-semibold">
-                <button
-                  onClick={() => { setAuthView('login'); setLoginError(''); }}
-                  className={`flex-1 py-2 text-center rounded-md transition-all ${authView === 'login' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
-                >
-                  Iniciar sesión
-                </button>
-                <button
-                  onClick={() => { setAuthView('register'); setLoginError(''); }}
-                  className={`flex-1 py-2 text-center rounded-md transition-all ${authView === 'register' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
-                >
-                  Registrarse
-                </button>
-              </div>
+          <div className="mb-4">
+            <GoogleSignInButton onCredential={credential => handleGoogleCredential(credential)} />
+            {googleLoading && <p className="text-xs text-center text-ink/50 mt-2">Conectando con Google…</p>}
+            {googleError && <p className="text-xs text-center text-danger-600 mt-2">{googleError}</p>}
+          </div>
+          <div className="flex items-center gap-3 mb-4">
+            <span className="h-px bg-sand flex-1" />
+            <span className="text-[11px] text-ink/40">o continúa con correo</span>
+            <span className="h-px bg-sand flex-1" />
+          </div>
 
-              {loginError && (
-                <div className="mb-4 px-3 py-2 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl">
-                  <p>{loginError}</p>
-                  {needsVerification && (
-                    <>
-                      <TurnstileWidget onToken={setTurnstileToken} />
-                      <button
-                        type="button"
-                        disabled={resendLoading}
-                        onClick={() => handleResendVerification(loginEmail)}
-                        className="mt-2 font-bold underline disabled:opacity-60"
-                      >
-                        {resendLoading ? 'Reenviando...' : 'Reenviar correo de verificación'}
-                      </button>
-                    </>
-                  )}
-                  {resendMessage && <p className="mt-2 text-slate-600">{resendMessage}</p>}
-                </div>
-              )}
-
-              <div className="mb-4">
-                <GoogleSignInButton onCredential={credential => handleGoogleCredential(credential)} />
-                {googleLoading && <p className="text-xs text-center text-slate-500 mt-2">Conectando con Google...</p>}
-                {googleError && <p className="text-xs text-center text-red-600 mt-2">{googleError}</p>}
-              </div>
-              <div className="flex items-center gap-3 mb-4 text-[10px] text-slate-400"><span className="h-px bg-slate-200 flex-1" /><span>o continúa con correo</span><span className="h-px bg-slate-200 flex-1" /></div>
-
-              {googleCredential && (
-                <form onSubmit={e => { e.preventDefault(); handleGoogleCredential(googleCredential, googlePassword); }} className="mb-4 p-3 bg-indigo-50 border border-indigo-100 rounded-xl space-y-2">
-                  <p className="text-xs text-slate-600">Esta cuenta ya existe. Introduce su contraseña para vincularla con Google.</p>
-                  <input type="password" required value={googlePassword} onChange={e => setGooglePassword(e.target.value)} placeholder="Contraseña actual" className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-xs" />
-                  <button disabled={googleLoading} className="w-full py-2.5 bg-indigo-600 text-white rounded-lg text-xs font-bold disabled:opacity-60">Vincular y continuar</button>
-                </form>
-              )}
-
-              {authView === 'login' ? (
-                <form onSubmit={handleProfLogin} className="space-y-3">
-                  <div className="relative">
-                    <Mail size={15} className="absolute left-3 top-3 text-slate-400" />
-                    <input
-                      type="email" required placeholder="Correo electrónico"
-                      value={loginEmail} onChange={e => setLoginEmail(e.target.value)}
-                      className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-emerald-500 focus:outline-none focus:bg-white transition-colors"
-                    />
-                  </div>
-                  <div className="relative">
-                    <Lock size={15} className="absolute left-3 top-3 text-slate-400" />
-                    <input
-                      type="password" required placeholder="Contraseña"
-                      value={loginPassword} onChange={e => setLoginPassword(e.target.value)}
-                      className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-emerald-500 focus:outline-none focus:bg-white transition-colors"
-                    />
-                  </div>
-                  <button
-                    type="submit" disabled={loading}
-                    className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-semibold py-3 rounded-xl text-xs transition-colors shadow-sm"
-                  >
-                    {loading ? 'Verificando...' : 'Acceder a mi panel'}
-                  </button>
-                </form>
-              ) : (
-                <form onSubmit={handleRegister} className="space-y-3">
-                  <input
-                    type="text"
-                    value={website}
-                    onChange={e => setWebsite(e.target.value)}
-                    name="website"
-                    tabIndex="-1"
-                    autoComplete="off"
-                    aria-hidden="true"
-                    className="absolute -left-[10000px] w-px h-px opacity-0"
-                  />
-                  <input
-                    type="text" required placeholder="Nombre completo"
-                    value={regName} onChange={e => setRegName(e.target.value)}
-                    className="w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-xs focus:ring-1 focus:ring-emerald-500 focus:outline-none placeholder:text-slate-400"
-                  />
-                  <input
-                    type="email" required placeholder="Correo electrónico"
-                    value={regEmail} onChange={e => setRegEmail(e.target.value)}
-                    className="w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-xs focus:ring-1 focus:ring-emerald-500 focus:outline-none placeholder:text-slate-400"
-                  />
-                  <div className="relative">
-                    <input
-                      type={showPassword ? 'text' : 'password'} required placeholder="Contraseña (mín. 8 car., mayúscula y número)"
-                      value={regPassword} onChange={e => setRegPassword(e.target.value)}
-                      className="w-full px-4 py-3 pr-10 bg-white border border-slate-300 rounded-xl text-xs focus:ring-1 focus:ring-emerald-500 focus:outline-none placeholder:text-slate-400"
-                    />
-                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-3 text-slate-400">
-                      {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
-                    </button>
-                  </div>
-                  <TurnstileWidget onToken={setTurnstileToken} />
-                  <button
-                    type="submit" disabled={loading}
-                    className="w-full bg-slate-950 hover:bg-slate-900 disabled:opacity-60 text-white font-bold py-3.5 rounded-xl text-xs shadow-md transition-all"
-                  >
-                    {loading ? 'Creando cuenta...' : 'Crear mi cuenta'}
-                  </button>
-                  <p className="text-[10px] text-slate-400 text-center leading-normal">
-                    Al crear una cuenta, aceptas nuestros{' '}
-                    <span className="underline font-semibold text-slate-500 cursor-pointer">Términos y Política de Privacidad</span>.
-                  </p>
-                </form>
-              )}
-            </>
+          {googleCredential && (
+            <form onSubmit={e => { e.preventDefault(); handleGoogleCredential(googleCredential, googlePassword); }} className="mb-5 bg-brand-50/60 border border-brand-100 rounded-2xl p-4 space-y-3">
+              <p className="text-xs text-ink/65 leading-relaxed">Esta cuenta ya existe. Introduce su contraseña para vincularla con Google.</p>
+              <Input type="password" required value={googlePassword} onChange={e => setGooglePassword(e.target.value)} placeholder="Contraseña actual" />
+              <Button size="sm" full loading={googleLoading}>Vincular y continuar</Button>
+            </form>
           )}
-        </div>
-      </div>
-    </div>
+
+          {authView === 'login' ? (
+            <form onSubmit={handleProfLogin} className="space-y-3">
+              <Input
+                type="email" required placeholder="Correo electrónico" icon={Mail}
+                value={loginEmail} onChange={e => setLoginEmail(e.target.value)}
+              />
+              <Input
+                type="password" required placeholder="Contraseña" icon={Lock}
+                value={loginPassword} onChange={e => setLoginPassword(e.target.value)}
+              />
+              <Button type="submit" size="lg" full loading={loading} className="mt-1">
+                {loading ? 'Verificando…' : 'Acceder a mi panel'}
+              </Button>
+            </form>
+          ) : (
+            <form onSubmit={handleRegister} className="space-y-3">
+              <input
+                type="text"
+                value={website}
+                onChange={e => setWebsite(e.target.value)}
+                name="website"
+                tabIndex="-1"
+                autoComplete="off"
+                aria-hidden="true"
+                className="absolute -left-[10000px] w-px h-px opacity-0"
+              />
+              <Input
+                type="text" required placeholder="Nombre completo"
+                value={regName} onChange={e => setRegName(e.target.value)}
+              />
+              <Input
+                type="email" required placeholder="Correo electrónico"
+                value={regEmail} onChange={e => setRegEmail(e.target.value)}
+              />
+              <div className="relative">
+                <Input
+                  type={showPassword ? 'text' : 'password'} required
+                  placeholder="Contraseña (mín. 8 car., mayúscula y número)"
+                  value={regPassword} onChange={e => setRegPassword(e.target.value)}
+                  className="pr-11"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-ink/35 hover:text-ink/70 transition-colors"
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+              <TurnstileWidget onToken={setTurnstileToken} />
+              <Button type="submit" variant="dark" size="lg" full loading={loading} className="mt-1">
+                {loading ? 'Creando cuenta…' : 'Crear mi cuenta'}
+              </Button>
+              <p className="text-[11px] text-ink/40 text-center leading-relaxed">
+                Al crear una cuenta, aceptas nuestros{' '}
+                <span className="underline underline-offset-2 text-ink/60 cursor-pointer">Términos y Política de Privacidad</span>.
+              </p>
+            </form>
+          )}
+        </>
+      )}
+    </Modal>
   );
 }

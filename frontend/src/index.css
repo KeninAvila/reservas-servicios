@@ -1,5 +1,90 @@
 @import "tailwindcss";
 
+/* ─────────────────────────────────────────────────────────────
+   SERVI · Design tokens — "Porcelana"
+   Soft-tech wellness: porcelana · grafito · jade digital
+   Radios: cards 16px · inputs 12px · botones/chips pill
+   ───────────────────────────────────────────────────────────── */
+@theme {
+  /* Tipografía */
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Geist", "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  /* Acento único — jade digital */
+  --color-brand-50:  #f2faf8;
+  --color-brand-100: #d9f1ec;
+  --color-brand-200: #b3e2d9;
+  --color-brand-300: #83ccc0;
+  --color-brand-400: #4daea0;
+  --color-brand-500: #2b9284;
+  --color-brand-600: #0f766e;
+  --color-brand-700: #0d5f5a;
+  --color-brand-800: #0e4c48;
+  --color-brand-900: #0e3f3c;
+  --color-brand-950: #072a28;
+
+  /* Estados de espera / atención */
+  --color-gold-100: #faf0dc;
+  --color-gold-200: #f3ddb4;
+  --color-gold-300: #e5c285;
+  --color-gold-400: #d3a355;
+  --color-gold-500: #b98436;
+  --color-gold-600: #96682a;
+  --color-gold-700: #775223;
+
+  /* Neutros porcelana */
+  --color-cream: #f7f7f5;
+  --color-sand: #e7e7e3;
+  --color-ink: #16181d;
+
+  /* Error */
+  --color-danger-50:  #fcf1f0;
+  --color-danger-100: #f7dedb;
+  --color-danger-200: #eebcb7;
+  --color-danger-600: #c03d2e;
+  --color-danger-700: #9e3226;
+
+  /* Sombras difusas */
+  --shadow-soft: 0 1px 2px rgb(22 24 29 / 0.04), 0 2px 10px rgb(22 24 29 / 0.04);
+  --shadow-card: 0 1px 3px rgb(22 24 29 / 0.05), 0 10px 30px rgb(22 24 29 / 0.07);
+  --shadow-lift: 0 2px 6px rgb(22 24 29 / 0.06), 0 20px 48px rgb(22 24 29 / 0.14);
+}
+
+/* Base */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--color-cream);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: var(--color-brand-600);
+  color: #ffffff;
+}
+
+/* ── Utilidades ─────────────────────────────────────────────── */
+
+/* Vidrio esmerilado para barras flotantes */
+@utility glass {
+  background: rgb(247 247 245 / 0.78);
+  backdrop-filter: blur(16px) saturate(1.5);
+  -webkit-backdrop-filter: blur(16px) saturate(1.5);
+}
+
+/* Micro-etiqueta */
+@utility caption {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 @utility no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
@@ -8,20 +93,65 @@
   }
 }
 
+/* ── Animaciones (200–400ms, easings suaves) ────────────────── */
+
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes fadeInSlow {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
 @keyframes scaleIn {
-  from { opacity: 0; transform: scale(0.7); }
+  from { opacity: 0; transform: scale(0.97); }
   to   { opacity: 1; transform: scale(1); }
 }
 
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+
+@keyframes ringPulse {
+  0%   { box-shadow: 0 0 0 0 rgb(15 118 110 / 0.35); }
+  100% { box-shadow: 0 0 0 18px rgb(15 118 110 / 0); }
+}
+
 @utility animate-fadeIn {
-  animation: fadeIn 0.25s ease-out both;
+  animation: fadeIn 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@utility animate-fadeInSlow {
+  animation: fadeInSlow 0.35s ease-out both;
 }
 
 @utility animate-scaleIn {
-  animation: scaleIn 0.35s cubic-bezier(0.34,1.56,0.64,1) both;
+  animation: scaleIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@utility animate-slideUp {
+  animation: slideUp 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@utility animate-ringPulse {
+  animation: ringPulse 1.4s cubic-bezier(0.22, 1, 0.36, 1) 0.2s 2;
+}
+
+@utility animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--color-sand) 25%,
+    #efefec 50%,
+    var(--color-sand) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
 }

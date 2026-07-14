@@ -1,6 +1,9 @@
 import { useState } from 'react';
-import { CheckCircle, KeyRound } from 'lucide-react';
+import { Check, KeyRound } from 'lucide-react';
 import api from '../services/api';
+import Logo from './ui/Logo';
+import Button from './ui/Button';
+import { Input, ErrorNote } from './ui/Field';
 
 export default function ResetPasswordPage({ token }) {
   const [password, setPassword] = useState('');
@@ -37,25 +40,45 @@ export default function ResetPasswordPage({ token }) {
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 flex items-center justify-center p-5">
-      <section className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8">
+    <main className="min-h-screen bg-cream text-ink antialiased flex flex-col items-center justify-center p-6 gap-8">
+      <Logo size="lg" />
+      <section className="w-full max-w-md bg-white rounded-3xl border border-sand shadow-card p-9 animate-scaleIn">
         {success ? (
           <div className="text-center">
-            <CheckCircle className="mx-auto mb-4 text-emerald-500" size={52} />
-            <h1 className="text-xl font-bold text-slate-900 mb-2">Contraseña actualizada</h1>
-            <p className="text-sm text-slate-600 mb-6">Ya puedes iniciar sesión con tu nueva contraseña.</p>
-            <button onClick={() => { window.location.hash = ''; }} className="w-full py-3 rounded-xl bg-indigo-600 text-white font-bold">Ir al inicio</button>
+            <span className="inline-flex w-14 h-14 rounded-full bg-brand-600 text-white items-center justify-center animate-ringPulse">
+              <Check size={26} strokeWidth={2.5} />
+            </span>
+            <p className="caption text-ink/40 mt-6">Cuenta segura</p>
+            <h1 className="font-display font-semibold text-2xl text-ink tracking-tight mt-1.5">Contraseña actualizada</h1>
+            <p className="text-sm text-ink/55 mt-2.5">Ya puedes iniciar sesión con tu nueva contraseña.</p>
+            <Button size="lg" full className="mt-7" onClick={() => { window.location.hash = ''; }}>
+              Ir al inicio
+            </Button>
           </div>
         ) : (
           <>
-            <KeyRound className="mx-auto mb-4 text-indigo-600" size={48} />
-            <h1 className="text-xl font-bold text-center text-slate-900 mb-2">Cambiar contraseña</h1>
-            <p className="text-sm text-center text-slate-500 mb-6">Usa al menos 8 caracteres, una mayúscula, una minúscula, un número y un carácter especial.</p>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Nueva contraseña" required className="w-full px-4 py-3 border border-slate-300 rounded-xl" />
-              <input type="password" value={confirmation} onChange={e => setConfirmation(e.target.value)} placeholder="Confirmar contraseña" required className="w-full px-4 py-3 border border-slate-300 rounded-xl" />
-              {error && <p className="text-sm text-red-600">{error}</p>}
-              <button disabled={loading} className="w-full py-3 rounded-xl bg-indigo-600 disabled:opacity-60 text-white font-bold">{loading ? 'Actualizando...' : 'Cambiar contraseña'}</button>
+            <div className="text-center">
+              <span className="inline-flex w-14 h-14 rounded-full bg-brand-50 text-brand-600 items-center justify-center">
+                <KeyRound size={24} strokeWidth={1.75} />
+              </span>
+              <h1 className="font-display font-semibold text-2xl text-ink tracking-tight mt-5">Cambiar contraseña</h1>
+              <p className="text-sm text-ink/55 leading-relaxed mt-2.5">
+                Usa al menos 8 caracteres, una mayúscula, una minúscula, un número y un carácter especial.
+              </p>
+            </div>
+            <form onSubmit={handleSubmit} className="mt-7 space-y-3">
+              <Input
+                type="password" value={password} onChange={e => setPassword(e.target.value)}
+                placeholder="Nueva contraseña" required
+              />
+              <Input
+                type="password" value={confirmation} onChange={e => setConfirmation(e.target.value)}
+                placeholder="Confirmar contraseña" required
+              />
+              <ErrorNote>{error}</ErrorNote>
+              <Button type="submit" size="lg" full loading={loading} className="mt-1">
+                {loading ? 'Actualizando…' : 'Cambiar contraseña'}
+              </Button>
             </form>
           </>
         )}

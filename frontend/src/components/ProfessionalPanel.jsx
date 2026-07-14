@@ -1,19 +1,20 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Plus, Trash2, Power, Edit2, MapPin, Calendar, Clock, Phone, CheckCircle, XCircle, Flag, ClipboardList, Settings2, BarChart2, Share2, Check, ImagePlus, Loader2 } from 'lucide-react';
+import {
+  Plus, Trash2, Power, Edit2, MapPin, Calendar, Clock, Phone, CheckCircle, XCircle,
+  Flag, ClipboardList, Settings2, BarChart2, Share2, Check, ImagePlus, LogOut, Inbox,
+} from 'lucide-react';
 import api from '../services/api';
 import ProfileSetupForm from './ProfileSetupForm';
+import Avatar from './ui/Avatar';
+import Button from './ui/Button';
+import Card, { SectionTitle } from './ui/Card';
+import EmptyState from './ui/EmptyState';
+import { EstadoBadge } from './ui/Badge';
+import { Input, Select, ErrorNote } from './ui/Field';
+import { Spinner, SkeletonCard } from './ui/Skeleton';
+import { estadoInfo, fmtPrecio } from '../lib/format';
 
 const DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-
-const ESTADO_BADGE = {
-  PENDIENTE:    { label: 'Pendiente',    cls: 'bg-amber-100 text-amber-800' },
-  ACEPTADA:     { label: 'Aceptada',     cls: 'bg-emerald-100 text-emerald-800' },
-  RECHAZADA:    { label: 'Rechazada',    cls: 'bg-red-100 text-red-800' },
-  FINALIZADA:   { label: 'Finalizada',   cls: 'bg-slate-100 text-slate-600' },
-  CANCELADA:    { label: 'Cancelada',    cls: 'bg-slate-100 text-slate-500' },
-  REPROGRAMADA: { label: 'Reprogramada', cls: 'bg-purple-100 text-purple-800' },
-  EXPIRADA:     { label: 'Expirada',     cls: 'bg-slate-100 text-slate-400' },
-};
 
 function buildDefaultHorarios() {
   return DIAS.map((_, i) => ({
@@ -32,8 +33,6 @@ export default function ProfessionalPanel({
   if (!rawProf) return null;
 
   const displayName = rawProf.nombre || rawProf.name || '';
-  const avatarUrl   = rawProf.avatar ||
-    `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=6366f1&color=fff&size=128`;
   const profStatus  = rawProf.status || 'activo';
 
   // ── Estado de perfil ──────────────────────────────────────────────────────
@@ -308,160 +307,190 @@ export default function ProfessionalPanel({
   }
 
   // ── Checks de estado ─────────────────────────────────────────────────────
-  const statusColor = profStatus === 'activo' ? 'text-indigo-500'
-    : profStatus === 'pendiente' ? 'text-amber-500'
-    : 'text-red-500';
+  const statusColor = profStatus === 'activo' ? 'text-brand-600'
+    : profStatus === 'pendiente' ? 'text-gold-600'
+    : 'text-danger-600';
+
+  const panelHeader = (
+    <header className="bg-cream/90 backdrop-blur-md border-b border-sand sticky top-0 z-40">
+      <div className="max-w-5xl mx-auto px-5 py-4 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <Avatar src={rawProf.avatar} name={displayName} size="sm" className="rounded-full" />
+          <div className="min-w-0">
+            <h1 className="font-display text-base text-ink leading-tight truncate">{displayName}</h1>
+            <span className={`text-[10px] font-semibold uppercase tracking-wider ${statusColor}`}>● {profStatus}</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {hasProfile === true && (
+            <button
+              onClick={() => {
+                const profId = profileData?.id;
+                if (!profId) return;
+                const url = `${window.location.origin}${window.location.pathname}#/p/${profId}`;
+                navigator.clipboard.writeText(url).then(() => {
+                  setLinkCopied(true);
+                  setTimeout(() => setLinkCopied(false), 2000);
+                });
+              }}
+              className="flex items-center gap-1.5 text-xs font-semibold text-brand-700 bg-white border border-sand hover:border-brand-300 px-3.5 py-2 rounded-full transition-colors"
+            >
+              {linkCopied ? <Check size={13} /> : <Share2 size={13} />}
+              <span className="hidden sm:inline">{linkCopied ? 'Copiado' : 'Mi página'}</span>
+            </button>
+          )}
+          <button
+            onClick={onLogout}
+            className="flex items-center gap-1.5 text-xs font-semibold text-danger-600 bg-white border border-sand hover:border-danger-200 hover:bg-danger-50 px-3.5 py-2 rounded-full transition-colors"
+          >
+            <LogOut size={13} />
+            <span className="hidden sm:inline">Salir</span>
+          </button>
+        </div>
+      </div>
+    </header>
+  );
 
   if (hasProfile === null) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <p className="text-xs text-slate-400">Cargando tu perfil...</p>
+      <div className="flex-1 flex items-center justify-center min-h-screen">
+        <Spinner label="Cargando tu perfil…" />
       </div>
     );
   }
 
   if (hasProfile === false) {
     return (
-      <div className="flex-1 flex flex-col bg-white">
-        <header className="bg-white border-b border-slate-100 px-4 py-3 flex items-center justify-between sticky top-0 z-40">
-          <div className="flex items-center gap-3">
-            <img src={avatarUrl} alt={displayName} className="w-8 h-8 rounded-full object-cover shadow-md shadow-indigo-100" />
-            <h1 className="font-black text-slate-900 text-sm">{displayName}</h1>
-          </div>
-          <button onClick={onLogout} className="text-[10px] font-bold text-red-600 bg-red-50 px-2.5 py-1 rounded-full hover:bg-red-100 transition-colors">Salir</button>
-        </header>
+      <div className="flex-1 flex flex-col min-h-screen">
+        {panelHeader}
         <ProfileSetupForm onComplete={() => { refetchProfile(); setHasProfile(true); }} />
       </div>
     );
   }
 
+  const TABS = [
+    ['agenda',        'Reservas',      ClipboardList],
+    ['configuracion', 'Configuración', Settings2],
+    ['stats',         'Estadísticas',  BarChart2],
+  ];
+
   return (
-    <div className="flex-1 flex flex-col bg-white">
-      {/* Header */}
-      <header className="bg-white border-b border-slate-100 px-4 py-3.5 flex items-center justify-between sticky top-0 z-40">
-        <div className="flex items-center gap-3">
-          <img src={avatarUrl} alt={displayName} className="w-9 h-9 rounded-xl object-cover shadow-md shadow-indigo-100" />
-          <div>
-            <h1 className="font-black text-slate-900 text-sm leading-tight">{displayName}</h1>
-            <span className={`text-[9px] font-bold uppercase ${statusColor}`}>● {profStatus}</span>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => {
-              const profId = profileData?.id;
-              if (!profId) return;
-              const url = `${window.location.origin}${window.location.pathname}#/p/${profId}`;
-              navigator.clipboard.writeText(url).then(() => {
-                setLinkCopied(true);
-                setTimeout(() => setLinkCopied(false), 2000);
-              });
-            }}
-            className="flex items-center gap-1 text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1.5 rounded-full hover:bg-indigo-100 transition-colors"
-          >
-            {linkCopied ? <Check size={10} /> : <Share2 size={10} />}
-            {linkCopied ? '¡Copiado!' : 'Mi link'}
-          </button>
-          <button onClick={onLogout} className="text-[10px] font-bold text-red-500 bg-red-50 px-3 py-1.5 rounded-full hover:bg-red-100 transition-colors">Salir</button>
-        </div>
-      </header>
+    <div className="flex-1 flex flex-col min-h-screen">
+      {panelHeader}
 
       {/* Tabs principales */}
-      <div className="flex bg-slate-100 p-1 mx-4 mt-4 rounded-xl gap-1 text-xs font-bold">
-        <button onClick={() => setPanelTab('agenda')} className={`flex-1 py-2 flex items-center justify-center gap-1.5 rounded-lg transition-all ${panelTab === 'agenda' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
-          <ClipboardList size={13} /> Reservas
-        </button>
-        <button onClick={() => setPanelTab('configuracion')} className={`flex-1 py-2 flex items-center justify-center gap-1.5 rounded-lg transition-all ${panelTab === 'configuracion' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
-          <Settings2 size={13} /> Config
-        </button>
-        <button onClick={() => setPanelTab('stats')} className={`flex-1 py-2 flex items-center justify-center gap-1.5 rounded-lg transition-all ${panelTab === 'stats' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
-          <BarChart2 size={13} /> Stats
-        </button>
+      <div className="max-w-5xl mx-auto w-full px-5 mt-6">
+        <div className="flex bg-white border border-sand p-1 rounded-xl gap-1 text-xs font-semibold shadow-soft max-w-md">
+          {TABS.map(([key, label, Icon]) => (
+            <button
+              key={key}
+              onClick={() => setPanelTab(key)}
+              className={`flex-1 py-2.5 flex items-center justify-center gap-1.5 rounded-lg transition-all ${
+                panelTab === key ? 'bg-brand-600 text-cream shadow-soft' : 'text-ink/45 hover:text-ink/70'
+              }`}
+            >
+              <Icon size={13} />
+              <span className="hidden sm:inline">{label}</span>
+              <span className="sm:hidden">{label.slice(0, 7)}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* ── TAB: AGENDA / RESERVAS ── */}
       {panelTab === 'agenda' && (
-        <main className="flex-1 p-4 space-y-4 overflow-y-auto pb-8">
+        <main className="flex-1 w-full max-w-5xl mx-auto px-5 py-6 pb-16 space-y-5">
           {/* Filtro de estado */}
-          <div className="flex gap-1.5 flex-wrap">
+          <div className="flex gap-2 flex-wrap">
             {['PENDIENTE', 'ACEPTADA', 'FINALIZADA', 'RECHAZADA'].map(est => (
               <button
                 key={est}
                 onClick={() => setReservaFiltro(est)}
-                className={`px-3 py-1 rounded-full text-[10px] font-bold border transition-all ${reservaFiltro === est ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm shadow-indigo-200' : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'}`}
+                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+                  reservaFiltro === est
+                    ? 'bg-brand-600 text-cream border-brand-600 shadow-soft'
+                    : 'bg-white text-ink/55 border-sand hover:border-brand-300 hover:text-brand-700'
+                }`}
               >
-                {ESTADO_BADGE[est]?.label}
+                {estadoInfo(est).label}
               </button>
             ))}
             <button
               onClick={() => setReservaFiltro('')}
-              className={`px-3 py-1 rounded-full text-[10px] font-bold border transition-all ${reservaFiltro === '' ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm shadow-indigo-200' : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'}`}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+                reservaFiltro === ''
+                  ? 'bg-brand-600 text-cream border-brand-600 shadow-soft'
+                  : 'bg-white text-ink/55 border-sand hover:border-brand-300 hover:text-brand-700'
+              }`}
             >
               Todas
             </button>
           </div>
 
-          {reservaMsg && (
-            <div className="px-3 py-2 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl">{reservaMsg}</div>
-          )}
+          <ErrorNote>{reservaMsg}</ErrorNote>
 
           {loadingReservas ? (
-            <p className="text-xs text-slate-400 text-center py-10">Cargando reservas...</p>
-          ) : reservas.length === 0 ? (
-            <div className="text-center py-12 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-              <p className="text-xs text-slate-400 font-medium">No hay reservas {ESTADO_BADGE[reservaFiltro]?.label?.toLowerCase() || ''}.</p>
+            <div className="grid gap-4 md:grid-cols-2">
+              {Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)}
             </div>
+          ) : reservas.length === 0 ? (
+            <EmptyState
+              icon={Inbox}
+              title={reservaFiltro ? `Sin reservas ${estadoInfo(reservaFiltro).label.toLowerCase()}s` : 'Sin reservas'}
+              description="Cuando un cliente reserve una cita contigo, aparecerá aquí."
+            />
           ) : (
-            <div className="space-y-3">
-              {reservas.map(r => {
-                const badge = ESTADO_BADGE[r.estado] || { label: r.estado, cls: 'bg-slate-100 text-slate-600' };
-                return (
-                  <div key={r.id} className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm space-y-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <h3 className="font-bold text-slate-900 text-sm leading-tight">{r.servicio_nombre}</h3>
-                        <span className="text-[10px] font-mono text-slate-400 mt-0.5 block">{r.uuid}</span>
-                      </div>
-                      <span className={`text-[10px] font-bold px-2 py-1 rounded-full shrink-0 ${badge.cls}`}>{badge.label}</span>
+            <div className="grid gap-4 md:grid-cols-2">
+              {reservas.map(r => (
+                <Card key={r.id} className="animate-fadeIn flex flex-col">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="font-display text-base text-ink leading-tight truncate">{r.servicio_nombre}</h3>
+                      <span className="text-[10px] font-mono text-ink/30 mt-1 block truncate">{r.uuid}</span>
                     </div>
-                    <div className="grid grid-cols-2 gap-2 text-xs text-slate-600">
-                      <div className="flex items-center gap-1.5">
-                        <Calendar size={11} className="text-slate-400 shrink-0" />
-                        <span>{r.fecha}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <Clock size={11} className="text-slate-400 shrink-0" />
-                        <span>{r.hora.slice(0, 5)} · {r.duracion_min} min</span>
-                      </div>
-                    </div>
-                    <div className="bg-slate-50 rounded-xl p-2.5 text-xs space-y-1 text-slate-700">
-                      <p><strong>Cliente:</strong> {r.cliente_nombre}</p>
-                      <p className="flex items-center gap-1">
-                        <Phone size={10} className="text-slate-400 shrink-0" />
-                        <a href={`tel:${r.cliente_telefono}`} className="text-indigo-600 hover:underline">{r.cliente_telefono}</a>
-                      </p>
-                      {r.cliente_nota && <p className="text-slate-500 italic">"{r.cliente_nota}"</p>}
-                    </div>
-                    <p className="text-xs font-bold text-slate-800">${parseFloat(r.precio).toFixed(2)}</p>
-                    {/* Acciones según estado */}
-                    {r.estado === 'PENDIENTE' && (
-                      <div className="grid grid-cols-2 gap-2">
-                        <button onClick={() => handleReservaStatus(r.id, 'ACEPTADA')} className="flex items-center justify-center gap-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded-xl text-xs transition-colors">
-                          <CheckCircle size={13} /> Aceptar
-                        </button>
-                        <button onClick={() => handleReservaStatus(r.id, 'RECHAZADA')} className="flex items-center justify-center gap-1 border border-red-200 hover:bg-red-50 text-red-600 font-bold py-2 rounded-xl text-xs transition-colors">
-                          <XCircle size={13} /> Rechazar
-                        </button>
-                      </div>
-                    )}
-                    {r.estado === 'ACEPTADA' && (
-                      <button onClick={() => handleReservaStatus(r.id, 'FINALIZADA')} className="w-full flex items-center justify-center gap-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded-xl text-xs transition-colors">
-                        <Flag size={13} /> Marcar como finalizada
-                      </button>
-                    )}
+                    <EstadoBadge estado={r.estado} className="shrink-0" />
                   </div>
-                );
-              })}
+
+                  <div className="flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-ink/60 mt-4">
+                    <span className="flex items-center gap-1.5">
+                      <Calendar size={12} className="text-brand-500 shrink-0" /> {r.fecha}
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <Clock size={12} className="text-brand-500 shrink-0" /> {r.hora.slice(0, 5)} · {r.duracion_min} min
+                    </span>
+                  </div>
+
+                  <div className="bg-cream rounded-xl p-3.5 text-xs space-y-1.5 text-ink/70 mt-4">
+                    <p><span className="font-semibold text-ink">Cliente:</span> {r.cliente_nombre}</p>
+                    <p className="flex items-center gap-1.5">
+                      <Phone size={11} className="text-ink/35 shrink-0" />
+                      <a href={`tel:${r.cliente_telefono}`} className="text-brand-700 font-semibold hover:underline">{r.cliente_telefono}</a>
+                    </p>
+                    {r.cliente_nota && <p className="text-ink/50 italic">"{r.cliente_nota}"</p>}
+                  </div>
+
+                  <div className="flex items-center justify-between mt-4 pt-4 border-t border-sand">
+                    <span className="font-display text-base text-brand-700">{fmtPrecio(r.precio)}</span>
+                  </div>
+
+                  {/* Acciones según estado */}
+                  {r.estado === 'PENDIENTE' && (
+                    <div className="grid grid-cols-2 gap-2 mt-3">
+                      <Button size="sm" onClick={() => handleReservaStatus(r.id, 'ACEPTADA')}>
+                        <CheckCircle size={13} /> Aceptar
+                      </Button>
+                      <Button size="sm" variant="dangerOutline" onClick={() => handleReservaStatus(r.id, 'RECHAZADA')}>
+                        <XCircle size={13} /> Rechazar
+                      </Button>
+                    </div>
+                  )}
+                  {r.estado === 'ACEPTADA' && (
+                    <Button size="sm" full className="mt-3" onClick={() => handleReservaStatus(r.id, 'FINALIZADA')}>
+                      <Flag size={13} /> Marcar como finalizada
+                    </Button>
+                  )}
+                </Card>
+              ))}
             </div>
           )}
         </main>
@@ -477,265 +506,255 @@ export default function ProfessionalPanel({
       )}
 
       {panelTab === 'configuracion' && !isEditingProfile && (
-        <main className="flex-1 p-4 space-y-6 overflow-y-auto pb-8">
+        <main className="flex-1 w-full max-w-5xl mx-auto px-5 py-6 pb-16">
+          <div className="grid gap-8 lg:grid-cols-2 items-start">
 
-          {/* Mi Perfil */}
-          {profileData && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold text-slate-800">Mi Perfil</h3>
-                <button onClick={() => setIsEditingProfile(true)} className="text-xs text-indigo-600 hover:underline flex items-center gap-0.5 font-semibold">
-                  <Edit2 size={12} /> Editar
-                </button>
-              </div>
-              <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm space-y-2 text-xs">
-                <p><strong>Categoría:</strong> {profileData.categoria}</p>
-                <p className="flex items-start gap-1">
-                  <MapPin size={12} className="text-slate-400 mt-0.5 shrink-0" />
-                  <span>{profileData.direccion_1}{profileData.direccion_2 ? `, ${profileData.direccion_2}` : ''}</span>
-                </p>
-                <p className="text-slate-600">{profileData.descripcion}</p>
-              </div>
-            </div>
-          )}
+            {/* Columna izquierda */}
+            <div className="space-y-8">
 
-          {/* Banner */}
-          {profileData && (
-            <div className="space-y-2">
-              <h3 className="text-sm font-bold text-slate-800">Banner del perfil</h3>
-              <div
-                className="relative h-32 rounded-2xl overflow-hidden cursor-pointer group border border-slate-200"
-                onClick={() => bannerInputRef.current?.click()}
-              >
-                {bannerPreview || profileData.banner ? (
-                  <img
-                    src={bannerPreview || profileData.banner}
-                    alt="banner"
-                    className="w-full h-full object-cover"
+              {/* Mi Perfil */}
+              {profileData && (
+                <section className="space-y-3">
+                  <SectionTitle
+                    action={
+                      <button onClick={() => setIsEditingProfile(true)} className="text-xs text-brand-700 font-semibold hover:underline flex items-center gap-1">
+                        <Edit2 size={12} /> Editar
+                      </button>
+                    }
+                  >
+                    Mi perfil
+                  </SectionTitle>
+                  <Card className="space-y-2.5 text-sm">
+                    <p><span className="font-semibold text-ink">Categoría:</span> <span className="text-ink/70">{profileData.categoria}</span></p>
+                    <p className="flex items-start gap-1.5 text-ink/70">
+                      <MapPin size={13} className="text-gold-500 mt-0.5 shrink-0" />
+                      <span>{profileData.direccion_1}{profileData.direccion_2 ? `, ${profileData.direccion_2}` : ''}</span>
+                    </p>
+                    <p className="text-ink/55 text-xs leading-relaxed">{profileData.descripcion}</p>
+                  </Card>
+                </section>
+              )}
+
+              {/* Banner */}
+              {profileData && (
+                <section className="space-y-3">
+                  <SectionTitle>Banner del perfil</SectionTitle>
+                  <div
+                    className="relative h-36 rounded-2xl overflow-hidden cursor-pointer group border border-sand shadow-soft"
+                    onClick={() => bannerInputRef.current?.click()}
+                  >
+                    {bannerPreview || profileData.banner ? (
+                      <img
+                        src={bannerPreview || profileData.banner}
+                        alt="banner"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-brand-700 via-brand-600 to-brand-500" />
+                    )}
+                    <div className="absolute inset-0 bg-ink/40 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <ImagePlus size={20} className="text-cream" />
+                      <span className="text-cream text-xs font-semibold mt-1.5">Cambiar banner</span>
+                    </div>
+                  </div>
+                  <input
+                    ref={bannerInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={handleBannerChange}
                   />
-                ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-indigo-400 to-violet-500" />
+                  {bannerMsg && (
+                    <p className={`text-xs font-semibold ${bannerMsg.startsWith('✓') ? 'text-brand-700' : 'text-danger-600'}`}>{bannerMsg}</p>
+                  )}
+                  {bannerFile && (
+                    <Button full loading={uploadingBanner} onClick={handleBannerUpload}>
+                      {uploadingBanner ? 'Subiendo…' : 'Guardar banner'}
+                    </Button>
+                  )}
+                </section>
+              )}
+
+              {/* Servicios */}
+              <section className="space-y-3">
+                <SectionTitle
+                  action={
+                    <button onClick={() => { setIsAddingService(!isAddingService); setServiceError(''); }} className="text-xs text-brand-700 font-semibold hover:underline flex items-center gap-1">
+                      <Plus size={13} /> Añadir
+                    </button>
+                  }
+                >
+                  Servicios
+                </SectionTitle>
+
+                <ErrorNote>{serviceError}</ErrorNote>
+
+                {isAddingService && (
+                  <Card as="form" onSubmit={handleAddService} className="space-y-3 border-brand-200 bg-brand-50/40">
+                    <p className="text-sm font-semibold text-ink">Nuevo servicio</p>
+                    <Input type="text" required placeholder="Nombre del servicio" value={newServiceName} onChange={e => setNewServiceName(e.target.value)} />
+                    <Input type="text" required placeholder="Descripción del servicio" value={newServiceDesc} onChange={e => setNewServiceDesc(e.target.value)} />
+                    <div className="grid grid-cols-2 gap-3">
+                      <Input label="Precio ($)" type="number" required min="0.01" step="0.01" value={newServicePrice} onChange={e => setNewServicePrice(Number(e.target.value))} />
+                      <Input label="Duración (min)" type="number" required min="5" max="480" value={newServiceDuration} onChange={e => setNewServiceDuration(Number(e.target.value))} />
+                    </div>
+                    <div className="flex justify-end gap-2 pt-1">
+                      <Button type="button" variant="ghost" size="sm" onClick={() => { setIsAddingService(false); setServiceError(''); }}>Cancelar</Button>
+                      <Button type="submit" size="sm">Añadir servicio</Button>
+                    </div>
+                  </Card>
                 )}
-                <div className="absolute inset-0 bg-black/30 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                  <ImagePlus size={20} className="text-white" />
-                  <span className="text-white text-[10px] font-bold mt-1">Cambiar banner</span>
-                </div>
-              </div>
-              <input
-                ref={bannerInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                className="hidden"
-                onChange={handleBannerChange}
-              />
-              {bannerMsg && (
-                <p className={`text-xs font-semibold ${bannerMsg.startsWith('✓') ? 'text-indigo-600' : 'text-red-600'}`}>{bannerMsg}</p>
-              )}
-              {bannerFile && (
-                <button
-                  onClick={handleBannerUpload}
-                  disabled={uploadingBanner}
-                  className="w-full flex items-center justify-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-bold py-2.5 rounded-xl text-xs transition-colors"
-                >
-                  {uploadingBanner ? <><Loader2 size={13} className="animate-spin" /> Subiendo...</> : 'Guardar banner'}
-                </button>
-              )}
-            </div>
-          )}
 
-          {/* Servicios */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-slate-800">Servicios</h3>
-              <button onClick={() => { setIsAddingService(!isAddingService); setServiceError(''); }} className="text-xs text-indigo-600 hover:underline flex items-center gap-0.5 font-semibold">
-                <Plus size={14} /> Añadir
-              </button>
-            </div>
-
-            {serviceError && (
-              <div className="px-3 py-2 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl">{serviceError}</div>
-            )}
-
-            {isAddingService && (
-              <form onSubmit={handleAddService} className="bg-slate-50 border border-slate-200 p-3 rounded-xl space-y-2.5">
-                <span className="text-xs font-bold text-slate-700">Nuevo Servicio</span>
-                <input type="text" required placeholder="Nombre del servicio" value={newServiceName} onChange={e => setNewServiceName(e.target.value)} className="w-full text-xs px-3 py-1.5 border border-slate-300 rounded-lg focus:outline-none focus:border-indigo-500" />
-                <input type="text" required placeholder="Descripción del servicio" value={newServiceDesc} onChange={e => setNewServiceDesc(e.target.value)} className="w-full text-xs px-3 py-1.5 border border-slate-300 rounded-lg focus:outline-none focus:border-indigo-500" />
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <span className="text-[10px] font-bold text-slate-500 block mb-1">Precio ($)</span>
-                    <input type="number" required min="0.01" step="0.01" value={newServicePrice} onChange={e => setNewServicePrice(Number(e.target.value))} className="w-full text-xs px-3 py-1.5 border border-slate-300 rounded-lg focus:outline-none focus:border-indigo-500" />
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-bold text-slate-500 block mb-1">Duración (min)</span>
-                    <input type="number" required min="5" max="480" value={newServiceDuration} onChange={e => setNewServiceDuration(Number(e.target.value))} className="w-full text-xs px-3 py-1.5 border border-slate-300 rounded-lg focus:outline-none focus:border-indigo-500" />
-                  </div>
-                </div>
-                <div className="flex justify-end gap-1.5 text-xs pt-1">
-                  <button type="button" onClick={() => { setIsAddingService(false); setServiceError(''); }} className="px-2.5 py-1 text-slate-500 hover:bg-slate-200 rounded-lg">Cancelar</button>
-                  <button type="submit" className="px-3 py-1 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700">Añadir</button>
-                </div>
-              </form>
-            )}
-
-            <div className="bg-white border border-slate-100 rounded-2xl p-3 shadow-sm space-y-1.5">
-              {loadingServices ? (
-                <p className="text-xs text-slate-400 text-center py-4">Cargando servicios...</p>
-              ) : localServices.length === 0 ? (
-                <p className="text-xs text-slate-400 text-center py-4">Aún no tienes servicios. Añade el primero.</p>
-              ) : localServices.map(s => (
-                <div key={s.id} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-b-0">
-                  <div className="text-xs min-w-0 flex-1 mr-2">
-                    <span className="font-bold text-slate-800 block truncate">{s.nombre}</span>
-                    <span className="text-[10px] text-slate-400 font-medium">{s.duracion_min} min · ${parseFloat(s.precio).toFixed(2)}</span>
-                    {s.descripcion && <span className="text-[10px] text-slate-400 block truncate">{s.descripcion}</span>}
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button title={s.estado === 'inactivo' ? 'Activar' : 'Desactivar'} onClick={() => handleToggleStatus(s.id, s.estado || 'activo')} className={`p-1.5 rounded-lg transition-colors ${s.estado === 'inactivo' ? 'text-slate-400 bg-slate-100 hover:bg-slate-200' : 'text-indigo-600 bg-indigo-50 hover:bg-indigo-100'}`}>
-                      <Power size={13} />
-                    </button>
-                    <button onClick={() => handleDeleteService(s.id)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg">
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Horarios */}
-          <div className="space-y-3">
-            <h3 className="text-sm font-bold text-slate-800">Horarios de Atención</h3>
-            <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm space-y-3">
-              {horarios.map((h, i) => (
-                <div key={h.dia_semana} className="flex items-center justify-between py-1.5 border-b border-slate-50 last:border-b-0 text-xs gap-2">
-                  <span className={`font-semibold w-20 shrink-0 ${h.activo ? 'text-slate-800' : 'text-slate-400'}`}>{DIAS[h.dia_semana]}</span>
-                  <label className="relative inline-flex items-center cursor-pointer shrink-0">
-                    <input type="checkbox" checked={h.activo} onChange={() => toggleDia(i)} className="sr-only peer" />
-                    <div className="w-9 h-5 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-500"></div>
-                  </label>
-                  <div className="flex items-center gap-1 flex-1 justify-end">
-                    <input type="time" disabled={!h.activo} value={h.hora_inicio} onChange={e => changeHora(i, 'hora_inicio', e.target.value)} className={`text-xs py-1 px-2 border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-500 ${!h.activo ? 'bg-slate-50 text-slate-400' : 'bg-white'}`} />
-                    <span className="text-slate-400">–</span>
-                    <input type="time" disabled={!h.activo} value={h.hora_fin} onChange={e => changeHora(i, 'hora_fin', e.target.value)} className={`text-xs py-1 px-2 border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-500 ${!h.activo ? 'bg-slate-50 text-slate-400' : 'bg-white'}`} />
-                  </div>
-                </div>
-              ))}
+                <Card padding="p-2">
+                  {loadingServices ? (
+                    <p className="text-xs text-ink/45 text-center py-6">Cargando servicios…</p>
+                  ) : localServices.length === 0 ? (
+                    <p className="text-xs text-ink/45 text-center py-6">Aún no tienes servicios. Añade el primero.</p>
+                  ) : localServices.map(s => (
+                    <div key={s.id} className="flex items-center justify-between gap-3 px-3 py-3 border-b border-sand last:border-b-0">
+                      <div className="text-sm min-w-0 flex-1">
+                        <span className={`font-semibold block truncate ${s.estado === 'inactivo' ? 'text-ink/40' : 'text-ink'}`}>{s.nombre}</span>
+                        <span className="text-xs text-ink/45">{s.duracion_min} min · {fmtPrecio(s.precio)}</span>
+                        {s.descripcion && <span className="text-xs text-ink/40 block truncate">{s.descripcion}</span>}
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          title={s.estado === 'inactivo' ? 'Activar' : 'Desactivar'}
+                          onClick={() => handleToggleStatus(s.id, s.estado || 'activo')}
+                          className={`p-2 rounded-lg transition-colors ${s.estado === 'inactivo' ? 'text-ink/35 bg-sand hover:bg-cream' : 'text-brand-700 bg-brand-50 hover:bg-brand-100'}`}
+                        >
+                          <Power size={14} />
+                        </button>
+                        <button
+                          title="Eliminar"
+                          onClick={() => handleDeleteService(s.id)}
+                          className="p-2 text-ink/35 hover:text-danger-600 hover:bg-danger-50 rounded-lg transition-colors"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </Card>
+              </section>
             </div>
 
-            {horarioMsg && (
-              <p className={`text-xs font-semibold ${horarioMsg.startsWith('✓') ? 'text-indigo-600' : 'text-red-600'}`}>{horarioMsg}</p>
-            )}
+            {/* Columna derecha */}
+            <div className="space-y-8">
 
-            <button
-              onClick={handleSaveHorarios}
-              disabled={savingHorarios}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-bold py-3 rounded-xl text-xs transition-colors shadow-sm shadow-indigo-200"
-            >
-              {savingHorarios ? 'Guardando...' : 'Guardar horarios'}
-            </button>
-          </div>
+              {/* Horarios */}
+              <section className="space-y-3">
+                <SectionTitle>Horarios de atención</SectionTitle>
+                <Card padding="p-4">
+                  {horarios.map((h, i) => (
+                    <div key={h.dia_semana} className="flex flex-wrap items-center py-2.5 border-b border-sand last:border-b-0 text-sm gap-x-3 gap-y-2">
+                      <span className={`font-semibold w-20 sm:w-24 shrink-0 text-xs ${h.activo ? 'text-ink' : 'text-ink/35'}`}>{DIAS[h.dia_semana]}</span>
+                      <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                        <input type="checkbox" checked={h.activo} onChange={() => toggleDia(i)} className="sr-only peer" />
+                        <div className="w-9 h-5 bg-sand rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-sand after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-600"></div>
+                      </label>
+                      <div className="flex items-center gap-1.5 basis-full sm:basis-auto sm:flex-1 justify-start sm:justify-end">
+                        <input type="time" disabled={!h.activo} value={h.hora_inicio} onChange={e => changeHora(i, 'hora_inicio', e.target.value)} className={`text-xs py-1.5 px-2 border border-sand rounded-lg focus:outline-none focus:border-brand-500 transition-colors ${!h.activo ? 'bg-cream text-ink/35' : 'bg-white text-ink'}`} />
+                        <span className="text-ink/35">–</span>
+                        <input type="time" disabled={!h.activo} value={h.hora_fin} onChange={e => changeHora(i, 'hora_fin', e.target.value)} className={`text-xs py-1.5 px-2 border border-sand rounded-lg focus:outline-none focus:border-brand-500 transition-colors ${!h.activo ? 'bg-cream text-ink/35' : 'bg-white text-ink'}`} />
+                      </div>
+                    </div>
+                  ))}
+                </Card>
 
-          {/* Configuración de agenda */}
-          <div className="space-y-3">
-            <h3 className="text-sm font-bold text-slate-800">Configuración de Agenda</h3>
-            <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm space-y-3">
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 block mb-1">Intervalo entre turnos (min)</label>
-                <select
-                  value={configAgenda.intervalo_agenda}
-                  onChange={e => setConfigAgenda(prev => ({ ...prev, intervalo_agenda: Number(e.target.value) }))}
-                  className="w-full text-xs px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-500 bg-white"
-                >
-                  {[5, 10, 15, 20, 30, 45, 60].map(v => <option key={v} value={v}>{v} minutos</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 block mb-1">Anticipación mínima para reservar (horas)</label>
-                <input
-                  type="number" min="1" max="48"
-                  value={configAgenda.anticipacion_horas}
-                  onChange={e => setConfigAgenda(prev => ({ ...prev, anticipacion_horas: Number(e.target.value) }))}
-                  className="w-full text-xs px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-500"
-                />
-              </div>
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 block mb-1">Máximo días en avance para reservar</label>
-                <input
-                  type="number" min="1" max="365"
-                  value={configAgenda.max_reserva_dias}
-                  onChange={e => setConfigAgenda(prev => ({ ...prev, max_reserva_dias: Number(e.target.value) }))}
-                  className="w-full text-xs px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-500"
-                />
-              </div>
-            </div>
-            {configMsg && (
-              <p className={`text-xs font-semibold ${configMsg.startsWith('✓') ? 'text-indigo-600' : 'text-red-600'}`}>{configMsg}</p>
-            )}
-            <button
-              onClick={handleSaveConfig}
-              disabled={savingConfig}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-bold py-3 rounded-xl text-xs transition-colors shadow-sm shadow-indigo-200"
-            >
-              {savingConfig ? 'Guardando...' : 'Guardar configuración'}
-            </button>
-          </div>
+                {horarioMsg && (
+                  <p className={`text-xs font-semibold ${horarioMsg.startsWith('✓') ? 'text-brand-700' : 'text-danger-600'}`}>{horarioMsg}</p>
+                )}
 
-          {/* Excepciones de horario */}
-          <div className="space-y-3">
-            <h3 className="text-sm font-bold text-slate-800">Días no disponibles</h3>
-            <form onSubmit={handleAddExcepcion} className="bg-slate-50 border border-slate-200 p-3 rounded-xl space-y-2">
-              <div className="grid grid-cols-2 gap-2">
-                <input
-                  type="date"
-                  required
-                  min={new Date().toISOString().split('T')[0]}
-                  value={newExcFecha}
-                  onChange={e => setNewExcFecha(e.target.value)}
-                  className="text-xs px-3 py-1.5 border border-slate-300 rounded-lg focus:outline-none focus:border-indigo-500 col-span-2"
-                />
-                <input
-                  type="text"
-                  placeholder="Motivo (opcional)"
-                  value={newExcMotivo}
-                  onChange={e => setNewExcMotivo(e.target.value)}
-                  className="text-xs px-3 py-1.5 border border-slate-300 rounded-lg focus:outline-none focus:border-indigo-500 col-span-2"
-                />
-              </div>
-              {excMsg && <p className="text-xs text-red-600">{excMsg}</p>}
-              <button type="submit" disabled={savingExc} className="w-full bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white font-bold py-2 rounded-lg text-xs transition-colors">
-                {savingExc ? 'Guardando...' : '+ Marcar día no disponible'}
-              </button>
-            </form>
+                <Button full loading={savingHorarios} onClick={handleSaveHorarios}>
+                  {savingHorarios ? 'Guardando…' : 'Guardar horarios'}
+                </Button>
+              </section>
 
-            <div className="space-y-1.5">
-              {excepciones.length === 0 ? (
-                <p className="text-xs text-slate-400 text-center py-3">Sin días bloqueados.</p>
-              ) : excepciones.map(ex => (
-                <div key={ex.id} className="flex items-center justify-between bg-red-50 border border-red-100 rounded-xl px-3 py-2">
-                  <div className="text-xs">
-                    <span className="font-bold text-red-700">{ex.fecha}</span>
-                    {ex.motivo && <span className="text-red-500 ml-2">— {ex.motivo}</span>}
-                  </div>
-                  <button onClick={() => handleDeleteExcepcion(ex.id)} className="p-1 text-red-400 hover:text-red-600 hover:bg-red-100 rounded-lg">
-                    <Trash2 size={13} />
-                  </button>
+              {/* Configuración de agenda */}
+              <section className="space-y-3">
+                <SectionTitle>Configuración de agenda</SectionTitle>
+                <Card className="space-y-4">
+                  <Select
+                    label="Intervalo entre turnos"
+                    value={configAgenda.intervalo_agenda}
+                    onChange={e => setConfigAgenda(prev => ({ ...prev, intervalo_agenda: Number(e.target.value) }))}
+                  >
+                    {[5, 10, 15, 20, 30, 45, 60].map(v => <option key={v} value={v}>{v} minutos</option>)}
+                  </Select>
+                  <Input
+                    label="Anticipación mínima para reservar (horas)"
+                    type="number" min="1" max="48"
+                    value={configAgenda.anticipacion_horas}
+                    onChange={e => setConfigAgenda(prev => ({ ...prev, anticipacion_horas: Number(e.target.value) }))}
+                  />
+                  <Input
+                    label="Máximo días en avance para reservar"
+                    type="number" min="1" max="365"
+                    value={configAgenda.max_reserva_dias}
+                    onChange={e => setConfigAgenda(prev => ({ ...prev, max_reserva_dias: Number(e.target.value) }))}
+                  />
+                </Card>
+                {configMsg && (
+                  <p className={`text-xs font-semibold ${configMsg.startsWith('✓') ? 'text-brand-700' : 'text-danger-600'}`}>{configMsg}</p>
+                )}
+                <Button full loading={savingConfig} onClick={handleSaveConfig}>
+                  {savingConfig ? 'Guardando…' : 'Guardar configuración'}
+                </Button>
+              </section>
+
+              {/* Excepciones de horario */}
+              <section className="space-y-3">
+                <SectionTitle>Días no disponibles</SectionTitle>
+                <Card as="form" onSubmit={handleAddExcepcion} className="space-y-3">
+                  <Input
+                    label="Fecha"
+                    type="date"
+                    required
+                    min={new Date().toISOString().split('T')[0]}
+                    value={newExcFecha}
+                    onChange={e => setNewExcFecha(e.target.value)}
+                  />
+                  <Input
+                    label="Motivo" hint="opcional"
+                    type="text"
+                    placeholder="Vacaciones, feriado…"
+                    value={newExcMotivo}
+                    onChange={e => setNewExcMotivo(e.target.value)}
+                  />
+                  {excMsg && <p className="text-xs text-danger-600">{excMsg}</p>}
+                  <Button type="submit" variant="secondary" full loading={savingExc}>
+                    {savingExc ? 'Guardando…' : 'Marcar día no disponible'}
+                  </Button>
+                </Card>
+
+                <div className="space-y-2">
+                  {excepciones.length === 0 ? (
+                    <p className="text-xs text-ink/40 text-center py-3">Sin días bloqueados.</p>
+                  ) : excepciones.map(ex => (
+                    <div key={ex.id} className="flex items-center justify-between bg-white border border-sand rounded-xl px-4 py-3 shadow-soft">
+                      <div className="text-sm min-w-0">
+                        <span className="font-semibold text-ink">{ex.fecha}</span>
+                        {ex.motivo && <span className="text-ink/50 text-xs ml-2">— {ex.motivo}</span>}
+                      </div>
+                      <button onClick={() => handleDeleteExcepcion(ex.id)} className="p-1.5 text-ink/35 hover:text-danger-600 hover:bg-danger-50 rounded-lg transition-colors shrink-0">
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              </section>
             </div>
           </div>
-
         </main>
       )}
 
       {/* ── TAB: ESTADÍSTICAS ── */}
       {panelTab === 'stats' && (
-        <main className="flex-1 p-4 space-y-4 overflow-y-auto pb-8">
-          {loadingStats && (
-            <p className="text-xs text-slate-400 text-center py-10">Cargando estadísticas...</p>
-          )}
+        <main className="flex-1 w-full max-w-5xl mx-auto px-5 py-6 pb-16 space-y-5">
+          {loadingStats && <Spinner label="Cargando estadísticas…" />}
           {!loadingStats && !stats && (
-            <p className="text-xs text-slate-400 text-center py-10">No hay datos disponibles.</p>
+            <EmptyState icon={BarChart2} title="Sin datos todavía" description="Cuando recibas reservas, aquí verás tus métricas." />
           )}
           {!loadingStats && stats && (() => {
             const maxMes     = Math.max(...(stats.por_mes.map(m => m.cantidad)), 1);
@@ -746,107 +765,106 @@ export default function ProfessionalPanel({
             return (
               <>
                 {/* KPIs */}
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="bg-indigo-600 rounded-2xl p-3 text-white text-center">
-                    <p className="text-lg font-black leading-none">{stats.reservas_mes}</p>
-                    <p className="text-[9px] opacity-80 mt-1">Reservas este mes</p>
-                  </div>
-                  <div className="bg-violet-600 rounded-2xl p-3 text-white text-center">
-                    <p className="text-lg font-black leading-none">${Number(stats.ingresos_mes).toFixed(0)}</p>
-                    <p className="text-[9px] opacity-80 mt-1">Ingresos mes</p>
-                  </div>
-                  <div className="bg-slate-800 rounded-2xl p-3 text-white text-center">
-                    <p className="text-lg font-black leading-none">{stats.total_historico}</p>
-                    <p className="text-[9px] opacity-80 mt-1">Total histórico</p>
-                  </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <Card>
+                    <p className="text-[10px] font-semibold text-ink/40 uppercase tracking-[0.14em]">Reservas este mes</p>
+                    <p className="font-display text-3xl text-ink mt-2">{stats.reservas_mes}</p>
+                  </Card>
+                  <Card>
+                    <p className="text-[10px] font-semibold text-ink/40 uppercase tracking-[0.14em]">Ingresos del mes</p>
+                    <p className="font-display text-3xl text-brand-700 mt-2">${Number(stats.ingresos_mes).toFixed(0)}</p>
+                  </Card>
+                  <Card>
+                    <p className="text-[10px] font-semibold text-ink/40 uppercase tracking-[0.14em]">Total histórico</p>
+                    <p className="font-display text-3xl text-ink mt-2">{stats.total_historico}</p>
+                  </Card>
                 </div>
 
-                {/* Reservas por mes */}
-                {stats.por_mes.length > 0 && (
-                  <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm">
-                    <h3 className="text-xs font-bold text-slate-700 mb-3">Reservas por mes</h3>
-                    <div className="flex items-end gap-1.5 h-20">
-                      {stats.por_mes.map(m => {
-                        const [, mes] = m.mes.split('-');
-                        const pct = Math.round((m.cantidad / maxMes) * 100);
-                        return (
-                          <div key={m.mes} className="flex-1 flex flex-col items-center gap-1">
-                            <span className="text-[8px] text-slate-500 font-bold">{m.cantidad}</span>
-                            <div
-                              className="w-full bg-indigo-500 rounded-t-sm transition-all"
-                              style={{ height: `${Math.max(pct, 8)}%` }}
-                            />
-                            <span className="text-[8px] text-slate-400">{MESES[Number(mes) - 1]}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
+                <div className="grid gap-4 md:grid-cols-2">
+                  {/* Reservas por mes */}
+                  {stats.por_mes.length > 0 && (
+                    <Card>
+                      <h3 className="text-sm font-semibold text-ink mb-4">Reservas por mes</h3>
+                      <div className="flex items-end gap-2 h-28">
+                        {stats.por_mes.map(m => {
+                          const [, mes] = m.mes.split('-');
+                          const pct = Math.round((m.cantidad / maxMes) * 100);
+                          return (
+                            <div key={m.mes} className="flex-1 flex flex-col items-center gap-1.5">
+                              <span className="text-[10px] text-ink/50 font-semibold">{m.cantidad}</span>
+                              <div
+                                className="w-full bg-brand-500 rounded-t-md transition-all"
+                                style={{ height: `${Math.max(pct, 8)}%` }}
+                              />
+                              <span className="text-[10px] text-ink/40">{MESES[Number(mes) - 1]}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </Card>
+                  )}
 
-                {/* Por estado */}
-                {stats.por_estado.length > 0 && (
-                  <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm">
-                    <h3 className="text-xs font-bold text-slate-700 mb-3">Reservas por estado</h3>
-                    <div className="space-y-2">
-                      {stats.por_estado.map(e => {
-                        const badge = ESTADO_BADGE[e.estado] || { label: e.estado, cls: 'bg-slate-100 text-slate-600' };
-                        return (
+                  {/* Por estado */}
+                  {stats.por_estado.length > 0 && (
+                    <Card>
+                      <h3 className="text-sm font-semibold text-ink mb-4">Reservas por estado</h3>
+                      <div className="space-y-3">
+                        {stats.por_estado.map(e => (
                           <div key={e.estado} className="flex items-center justify-between">
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${badge.cls}`}>{badge.label}</span>
-                            <span className="text-xs font-bold text-slate-700">{e.cantidad}</span>
+                            <EstadoBadge estado={e.estado} />
+                            <span className="text-sm font-semibold text-ink">{e.cantidad}</span>
                           </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
+                        ))}
+                      </div>
+                    </Card>
+                  )}
 
-                {/* Top servicios */}
-                {stats.top_servicios.length > 0 && (
-                  <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm">
-                    <h3 className="text-xs font-bold text-slate-700 mb-3">Servicios más solicitados</h3>
-                    <div className="space-y-2.5">
-                      {stats.top_servicios.map((s, i) => (
-                        <div key={i}>
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-xs text-slate-700 truncate mr-2">{s.nombre}</span>
-                            <span className="text-[10px] font-bold text-indigo-600 shrink-0">{s.cantidad}</span>
+                  {/* Top servicios */}
+                  {stats.top_servicios.length > 0 && (
+                    <Card>
+                      <h3 className="text-sm font-semibold text-ink mb-4">Servicios más solicitados</h3>
+                      <div className="space-y-3.5">
+                        {stats.top_servicios.map((s, i) => (
+                          <div key={i}>
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="text-xs text-ink/70 truncate mr-2">{s.nombre}</span>
+                              <span className="text-xs font-semibold text-brand-700 shrink-0">{s.cantidad}</span>
+                            </div>
+                            <div className="w-full bg-sand rounded-full h-1.5">
+                              <div
+                                className="bg-brand-500 h-1.5 rounded-full transition-all"
+                                style={{ width: `${Math.round((s.cantidad / maxServicio) * 100)}%` }}
+                              />
+                            </div>
                           </div>
-                          <div className="w-full bg-slate-100 rounded-full h-1.5">
-                            <div
-                              className="bg-indigo-500 h-1.5 rounded-full transition-all"
-                              style={{ width: `${Math.round((s.cantidad / maxServicio) * 100)}%` }}
-                            />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                        ))}
+                      </div>
+                    </Card>
+                  )}
 
-                {/* Horas pico */}
-                {stats.horas_pico.length > 0 && (
-                  <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm">
-                    <h3 className="text-xs font-bold text-slate-700 mb-3">Horas más ocupadas</h3>
-                    <div className="flex items-end gap-1 h-16">
-                      {stats.horas_pico.map(h => {
-                        const pct = Math.round((h.cantidad / maxHora) * 100);
-                        const hNum = Number(h.hora);
-                        const label = `${hNum % 12 || 12}${hNum >= 12 ? 'p' : 'a'}`;
-                        return (
-                          <div key={h.hora} className="flex-1 flex flex-col items-center gap-0.5">
-                            <div
-                              className="w-full bg-violet-400 rounded-t-sm"
-                              style={{ height: `${Math.max(pct, 8)}%` }}
-                            />
-                            <span className="text-[7px] text-slate-400">{label}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
+                  {/* Horas pico */}
+                  {stats.horas_pico.length > 0 && (
+                    <Card>
+                      <h3 className="text-sm font-semibold text-ink mb-4">Horas más ocupadas</h3>
+                      <div className="flex items-end gap-1.5 h-24">
+                        {stats.horas_pico.map(h => {
+                          const pct = Math.round((h.cantidad / maxHora) * 100);
+                          const hNum = Number(h.hora);
+                          const label = `${hNum % 12 || 12}${hNum >= 12 ? 'p' : 'a'}`;
+                          return (
+                            <div key={h.hora} className="flex-1 flex flex-col items-center gap-1">
+                              <div
+                                className="w-full bg-gold-400 rounded-t-md"
+                                style={{ height: `${Math.max(pct, 8)}%` }}
+                              />
+                              <span className="text-[9px] text-ink/40">{label}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </Card>
+                  )}
+                </div>
               </>
             );
           })()}

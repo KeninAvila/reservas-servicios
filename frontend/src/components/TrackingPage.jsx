@@ -1,32 +1,22 @@
 import { useState, useEffect } from 'react';
-import { CalendarDays, Clock, User, CheckCircle2, XCircle, AlertCircle, Loader2, ArrowLeft, X } from 'lucide-react';
+import { CalendarDays, Clock, User, CheckCircle2, XCircle, AlertCircle, SearchX } from 'lucide-react';
 import api from '../services/api';
+import Logo from './ui/Logo';
+import Button from './ui/Button';
+import { EstadoBadge } from './ui/Badge';
+import { Spinner } from './ui/Skeleton';
+import { ErrorNote } from './ui/Field';
+import { fmtFechaLarga, fmtHora, fmtPrecio } from '../lib/format';
 
-const ESTADO_STYLES = {
-  PENDIENTE:    { bg: 'bg-amber-50',   text: 'text-amber-700',   border: 'border-amber-200',   icon: <AlertCircle size={14} />, label: 'Pendiente' },
-  ACEPTADA:     { bg: 'bg-indigo-50',  text: 'text-indigo-700',  border: 'border-indigo-200',  icon: <CheckCircle2 size={14} />, label: 'Aceptada' },
-  RECHAZADA:    { bg: 'bg-red-50',     text: 'text-red-700',     border: 'border-red-200',     icon: <XCircle size={14} />, label: 'Rechazada' },
-  CANCELADA:    { bg: 'bg-slate-50',   text: 'text-slate-600',   border: 'border-slate-200',   icon: <XCircle size={14} />, label: 'Cancelada' },
-  FINALIZADA:   { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', icon: <CheckCircle2 size={14} />, label: 'Finalizada' },
-  REPROGRAMADA: { bg: 'bg-violet-50',  text: 'text-violet-700',  border: 'border-violet-200',  icon: <AlertCircle size={14} />, label: 'Reprogramada' },
-  EXPIRADA:     { bg: 'bg-slate-50',   text: 'text-slate-500',   border: 'border-slate-200',   icon: <XCircle size={14} />, label: 'Expirada' },
+const ESTADO_HERO = {
+  PENDIENTE:    { icon: AlertCircle,  cls: 'bg-gold-100 text-gold-700',    msg: 'El profesional confirmará tu cita pronto.' },
+  ACEPTADA:     { icon: CheckCircle2, cls: 'bg-brand-50 text-brand-700',   msg: 'Tu cita está confirmada. Te esperamos.' },
+  RECHAZADA:    { icon: XCircle,      cls: 'bg-danger-50 text-danger-600', msg: 'El profesional no pudo aceptar esta cita.' },
+  CANCELADA:    { icon: XCircle,      cls: 'bg-sand text-ink/50',          msg: 'Esta reserva fue cancelada.' },
+  FINALIZADA:   { icon: CheckCircle2, cls: 'bg-brand-50 text-brand-700',   msg: 'Cita completada. Gracias por tu visita.' },
+  REPROGRAMADA: { icon: AlertCircle,  cls: 'bg-gold-100 text-gold-700',    msg: 'Esta cita fue reprogramada.' },
+  EXPIRADA:     { icon: XCircle,      cls: 'bg-sand text-ink/50',          msg: 'Esta reserva expiró.' },
 };
-
-function formatFecha(fecha) {
-  if (!fecha) return '';
-  const [y, m, d] = fecha.split('-');
-  return new Date(Number(y), Number(m) - 1, Number(d))
-    .toLocaleDateString('es-EC', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-}
-
-function formatHora(hora) {
-  if (!hora) return '';
-  const [h, m] = hora.split(':');
-  const hNum = Number(h);
-  const ampm = hNum >= 12 ? 'PM' : 'AM';
-  const h12 = hNum % 12 || 12;
-  return `${h12}:${m} ${ampm}`;
-}
 
 export default function TrackingPage({ uuid }) {
   const [reserva, setReserva]       = useState(null);
@@ -96,235 +86,190 @@ export default function TrackingPage({ uuid }) {
   // Solo el profesional dueño de la reserva, con sesión activa
   const esProfesionalDueño = authUser?.id_rol === 2 && authUser?.id === reserva?.profesional_user_id;
   const canRespond = reserva && reserva.estado === 'PENDIENTE' && esProfesionalDueño;
-  const estadoStyle = reserva ? (ESTADO_STYLES[reserva.estado] ?? ESTADO_STYLES.PENDIENTE) : null;
+  const hero = reserva ? (ESTADO_HERO[reserva.estado] ?? ESTADO_HERO.PENDIENTE) : null;
 
   return (
-    <div className="min-h-screen bg-slate-100 font-sans antialiased text-slate-800">
-      <div className="max-w-md mx-auto bg-white min-h-screen shadow-lg flex flex-col border-x border-slate-200">
+    <div className="min-h-screen bg-cream text-ink antialiased flex flex-col">
 
-        {/* Header */}
-        <div className="bg-indigo-600 px-4 pt-6 pb-5 text-white">
+      {/* Header */}
+      <header className="glass border-b border-ink/5 sticky top-0 z-40">
+        <div className="max-w-lg md:max-w-xl mx-auto px-5 py-4 flex items-center justify-between">
+          <Logo onClick={() => { window.location.hash = ''; }} />
           <button
             onClick={() => { window.location.hash = ''; }}
-            className="flex items-center gap-1 text-indigo-200 text-xs mb-3 hover:text-white transition-colors"
+            className="text-xs font-semibold text-ink/55 hover:text-brand-700 transition-colors"
           >
-            <ArrowLeft size={13} /> Inicio
+            ← Inicio
           </button>
-          <p className="text-indigo-200 text-[10px] uppercase tracking-widest font-bold mb-1">Estado de tu cita</p>
-          <h1 className="text-base font-bold leading-tight">Seguimiento de reserva</h1>
-          <p className="text-indigo-300 text-[10px] mt-1 font-mono">{uuid}</p>
         </div>
+      </header>
 
-        {/* Content */}
-        <div className="flex-1 p-4">
+      <main className="flex-1 w-full max-w-lg md:max-w-xl mx-auto px-5 py-8">
 
-          {loading && (
-            <div className="flex flex-col items-center justify-center py-16 gap-3">
-              <Loader2 size={24} className="text-indigo-500 animate-spin" />
-              <p className="text-xs text-slate-500">Buscando tu reserva...</p>
+        <p className="caption text-brand-600">Seguimiento de reserva</p>
+        <h1 className="font-display font-semibold text-2xl md:text-3xl text-ink tracking-tight mt-1.5">Estado de tu cita</h1>
+        <p className="font-mono text-[10px] text-ink/30 mt-1.5 tracking-wider uppercase">{uuid}</p>
+
+        {loading && <Spinner label="Buscando tu reserva…" />}
+
+        {!loading && error && (
+          <div className="mt-8 bg-white rounded-2xl border border-sand py-14 px-6 text-center animate-fadeIn">
+            <div className="w-14 h-14 rounded-full bg-cream flex items-center justify-center mx-auto">
+              <SearchX size={22} className="text-ink/30" strokeWidth={1.5} />
             </div>
-          )}
+            <p className="font-display font-semibold text-lg text-ink mt-5">Reserva no encontrada</p>
+            <p className="text-sm text-ink/50 mt-1.5">{error}</p>
+          </div>
+        )}
 
-          {!loading && error && (
-            <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
-              <div className="w-14 h-14 bg-slate-100 rounded-full flex items-center justify-center text-2xl">😕</div>
-              <p className="text-sm font-bold text-slate-700">No encontrada</p>
-              <p className="text-xs text-slate-500">{error}</p>
+        {!loading && reserva && (
+          <div className="mt-7 space-y-4 animate-fadeIn">
+
+            {/* Estado */}
+            <div className="bg-white rounded-2xl border border-sand p-5 flex items-center gap-4">
+              <span className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 ${hero.cls}`}>
+                <hero.icon size={20} strokeWidth={1.75} />
+              </span>
+              <div className="min-w-0">
+                <EstadoBadge estado={reserva.estado} />
+                <p className="text-sm text-ink/60 mt-1.5 leading-relaxed">{hero.msg}</p>
+              </div>
             </div>
-          )}
 
-          {!loading && reserva && (
-            <div className="space-y-3">
-
-              {/* Estado card */}
-              <div className={`rounded-2xl border ${estadoStyle.bg} ${estadoStyle.border} p-4`}>
-                <div className={`flex items-center gap-2 ${estadoStyle.text} text-xs font-bold mb-1`}>
-                  {estadoStyle.icon}
-                  {estadoStyle.label}
+            {/* Detalle */}
+            <div className="bg-white rounded-2xl border border-sand overflow-hidden">
+              <div className="px-5 py-4 flex items-start gap-4 border-b border-sand">
+                <span className="w-9 h-9 rounded-full bg-cream flex items-center justify-center shrink-0">
+                  <User size={15} className="text-brand-600" />
+                </span>
+                <div className="min-w-0">
+                  <p className="caption text-ink/40">Cliente</p>
+                  <p className="text-sm font-semibold text-ink mt-0.5">{reserva.cliente_nombre}</p>
                 </div>
-                {reserva.estado === 'PENDIENTE' && (
-                  <p className={`text-[10px] ${estadoStyle.text} opacity-80`}>El profesional confirmará tu cita pronto.</p>
-                )}
-                {reserva.estado === 'ACEPTADA' && (
-                  <p className={`text-[10px] ${estadoStyle.text} opacity-80`}>¡Tu cita está confirmada! Te esperamos.</p>
-                )}
-                {reserva.estado === 'CANCELADA' && (
-                  <p className={`text-[10px] ${estadoStyle.text} opacity-80`}>Esta reserva fue cancelada.</p>
-                )}
-                {reserva.estado === 'RECHAZADA' && (
-                  <p className={`text-[10px] ${estadoStyle.text} opacity-80`}>El profesional no pudo aceptar esta cita.</p>
-                )}
-                {reserva.estado === 'FINALIZADA' && (
-                  <p className={`text-[10px] ${estadoStyle.text} opacity-80`}>¡Cita completada! Gracias por tu visita.</p>
-                )}
               </div>
 
-              {/* Info card */}
-              <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4 space-y-3">
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center shrink-0">
-                    <User size={14} className="text-indigo-600" />
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wide">Cliente</p>
-                    <p className="text-sm font-semibold text-slate-800">{reserva.cliente_nombre}</p>
-                  </div>
+              <div className="px-5 py-4 flex items-start gap-4 border-b border-sand">
+                <span className="w-9 h-9 rounded-full bg-cream flex items-center justify-center shrink-0">
+                  <CalendarDays size={15} className="text-brand-600" />
+                </span>
+                <div className="min-w-0">
+                  <p className="caption text-ink/40">Fecha y hora</p>
+                  <p className="text-sm font-semibold text-ink mt-0.5 capitalize">{fmtFechaLarga(reserva.fecha)}</p>
+                  <p className="text-xs text-ink/50 mt-0.5">{fmtHora(reserva.hora)} · {reserva.duracion_min} min</p>
                 </div>
-
-                <div className="h-px bg-slate-200" />
-
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 bg-violet-100 rounded-full flex items-center justify-center shrink-0">
-                    <CalendarDays size={14} className="text-violet-600" />
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wide">Fecha y hora</p>
-                    <p className="text-sm font-semibold text-slate-800 capitalize">{formatFecha(reserva.fecha)}</p>
-                    <p className="text-xs text-slate-500">{formatHora(reserva.hora)} · {reserva.duracion_min} min</p>
-                  </div>
-                </div>
-
-                <div className="h-px bg-slate-200" />
-
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 bg-slate-200 rounded-full flex items-center justify-center shrink-0">
-                    <Clock size={14} className="text-slate-600" />
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wide">Servicio</p>
-                    <p className="text-sm font-semibold text-slate-800">{reserva.servicio_nombre}</p>
-                    <p className="text-xs text-slate-500">Profesional: {reserva.profesional_nombre}</p>
-                  </div>
-                </div>
-
-                {reserva.precio && (
-                  <>
-                    <div className="h-px bg-slate-200" />
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-slate-500">Precio</span>
-                      <span className="text-sm font-bold text-slate-800">${Number(reserva.precio).toFixed(2)}</span>
-                    </div>
-                  </>
-                )}
               </div>
 
-              {/* Error cancelación */}
-              {cancelError && (
-                <div className="px-3 py-2 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs">
-                  {cancelError}
+              <div className="px-5 py-4 flex items-start gap-4">
+                <span className="w-9 h-9 rounded-full bg-cream flex items-center justify-center shrink-0">
+                  <Clock size={15} className="text-brand-600" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="caption text-ink/40">Servicio</p>
+                  <p className="text-sm font-semibold text-ink mt-0.5">{reserva.servicio_nombre}</p>
+                  <p className="text-xs text-ink/50 mt-0.5">Profesional: {reserva.profesional_nombre}</p>
+                </div>
+              </div>
+
+              {reserva.precio && (
+                <div className="px-5 py-4 flex items-center justify-between border-t border-sand bg-cream/50">
+                  <span className="text-sm text-ink/50">Total</span>
+                  <span className="font-display font-semibold text-lg text-brand-700 tabular-nums">{fmtPrecio(reserva.precio)}</span>
                 </div>
               )}
+            </div>
 
-              {/* Canceled success */}
-              {canceled && (
-                <div className="px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-slate-600 text-xs text-center">
-                  Reserva cancelada correctamente.
+            <ErrorNote>{cancelError}</ErrorNote>
+
+            {canceled && (
+              <p className="text-sm text-ink/55 text-center bg-white border border-sand rounded-2xl py-3">
+                Reserva cancelada correctamente.
+              </p>
+            )}
+
+            {/* ── Sección profesional ── */}
+            {reserva.estado === 'PENDIENTE' && !esProfesionalDueño && (
+              <div className="bg-white rounded-2xl border border-sand p-5">
+                <p className="text-sm font-semibold text-ink">¿Eres el profesional de esta cita?</p>
+                <p className="text-xs text-ink/50 leading-relaxed mt-1.5">
+                  Inicia sesión con tu cuenta profesional para aceptar o rechazar esta reserva.
+                </p>
+                <Button size="sm" full className="mt-4" onClick={() => { window.location.hash = ''; }}>
+                  Iniciar sesión
+                </Button>
+              </div>
+            )}
+
+            {canRespond && !showRespondConfirm && (
+              <div className="bg-white rounded-2xl border border-brand-200 p-5">
+                <p className="text-sm font-semibold text-ink">Gestionar esta cita</p>
+                <div className="flex gap-2 mt-4">
+                  <Button size="sm" className="flex-1" onClick={() => setShowRespondConfirm('aceptar')}>
+                    <CheckCircle2 size={14} /> Aceptar
+                  </Button>
+                  <Button variant="dangerOutline" size="sm" className="flex-1" onClick={() => setShowRespondConfirm('rechazar')}>
+                    <XCircle size={14} /> Rechazar
+                  </Button>
                 </div>
-              )}
+              </div>
+            )}
 
-              {/* ── Sección profesional ── */}
-              {reserva.estado === 'PENDIENTE' && !esProfesionalDueño && (
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-2">
-                  <p className="text-xs font-bold text-slate-600">¿Eres el profesional de esta cita?</p>
-                  <p className="text-[10px] text-slate-400 leading-relaxed">
-                    Inicia sesión con tu cuenta profesional para aceptar o rechazar esta reserva.
-                  </p>
-                  <button
-                    onClick={() => { window.location.hash = ''; }}
-                    className="w-full py-2 bg-indigo-600 text-white text-xs font-bold rounded-xl hover:bg-indigo-700 transition-colors"
+            {showRespondConfirm && (
+              <div className={`bg-white rounded-2xl border p-5 space-y-4 ${showRespondConfirm === 'aceptar' ? 'border-brand-200' : 'border-danger-200'}`}>
+                <p className="text-sm font-semibold text-ink">
+                  ¿Confirmas {showRespondConfirm === 'aceptar' ? 'aceptar' : 'rechazar'} esta cita?
+                </p>
+                <ErrorNote>{respondError}</ErrorNote>
+                <div className="flex gap-2">
+                  <Button variant="secondary" size="sm" className="flex-1" onClick={() => setShowRespondConfirm(null)}>
+                    Volver
+                  </Button>
+                  <Button
+                    variant={showRespondConfirm === 'aceptar' ? 'primary' : 'danger'}
+                    size="sm"
+                    className="flex-1"
+                    loading={responding}
+                    onClick={() => handleResponder(showRespondConfirm)}
                   >
-                    Iniciar sesión
-                  </button>
+                    {responding ? 'Procesando…' : 'Sí, confirmar'}
+                  </Button>
                 </div>
-              )}
+              </div>
+            )}
 
-              {canRespond && !showRespondConfirm && (
-                <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-4 space-y-3">
-                  <p className="text-xs font-bold text-indigo-700">Gestionar esta cita</p>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setShowRespondConfirm('aceptar')}
-                      className="flex-1 py-2 bg-indigo-600 text-white text-xs font-bold rounded-xl hover:bg-indigo-700 transition-colors"
-                    >
-                      ✓ Aceptar
-                    </button>
-                    <button
-                      onClick={() => setShowRespondConfirm('rechazar')}
-                      className="flex-1 py-2 border border-red-200 text-red-600 text-xs font-bold rounded-xl hover:bg-red-50 transition-colors"
-                    >
-                      ✗ Rechazar
-                    </button>
-                  </div>
+            {/* Cancel button */}
+            {canCancel && !showConfirm && (
+              <Button variant="dangerOutline" full onClick={() => setShowConfirm(true)}>
+                Cancelar cita
+              </Button>
+            )}
+
+            {/* Confirm cancel */}
+            {showConfirm && (
+              <div className="bg-white rounded-2xl border border-danger-200 p-5 space-y-4">
+                <p className="text-sm font-semibold text-ink">¿Seguro que quieres cancelar esta cita?</p>
+                <p className="text-xs text-ink/50 leading-relaxed">
+                  Esta acción no se puede deshacer. Solo puedes cancelar con al menos 2 horas de anticipación.
+                </p>
+                <div className="flex gap-2">
+                  <Button variant="secondary" size="sm" className="flex-1" onClick={() => setShowConfirm(false)}>
+                    Volver
+                  </Button>
+                  <Button variant="danger" size="sm" className="flex-1" loading={canceling} onClick={handleCancel}>
+                    {canceling ? 'Cancelando…' : 'Sí, cancelar'}
+                  </Button>
                 </div>
-              )}
+              </div>
+            )}
 
-              {showRespondConfirm && (
-                <div className={`rounded-2xl border p-4 space-y-3 ${showRespondConfirm === 'aceptar' ? 'border-indigo-200 bg-indigo-50' : 'border-red-200 bg-red-50'}`}>
-                  <p className={`text-xs font-bold ${showRespondConfirm === 'aceptar' ? 'text-indigo-700' : 'text-red-700'}`}>
-                    ¿Confirmas {showRespondConfirm === 'aceptar' ? 'aceptar' : 'rechazar'} esta cita?
-                  </p>
-                  {respondError && <p className="text-xs text-red-600">{respondError}</p>}
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setShowRespondConfirm(null)}
-                      className="flex-1 py-2 border border-slate-300 text-slate-600 text-xs font-semibold rounded-xl hover:bg-slate-100 transition-colors"
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      onClick={() => handleResponder(showRespondConfirm)}
-                      disabled={responding}
-                      className={`flex-1 py-2 text-white text-xs font-bold rounded-xl disabled:opacity-60 transition-colors ${showRespondConfirm === 'aceptar' ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-red-600 hover:bg-red-700'}`}
-                    >
-                      {responding ? 'Procesando...' : 'Sí, confirmar'}
-                    </button>
-                  </div>
-                </div>
-              )}
+          </div>
+        )}
+      </main>
 
-              {/* Cancel button */}
-              {canCancel && !showConfirm && (
-                <button
-                  onClick={() => setShowConfirm(true)}
-                  className="w-full py-2.5 border border-red-200 text-red-600 text-xs font-semibold rounded-xl hover:bg-red-50 transition-colors"
-                >
-                  Cancelar cita
-                </button>
-              )}
+      {/* Footer */}
+      <footer className="px-5 pb-6 pt-2 text-center">
+        <p className="text-[11px] text-ink/35">Guarda este enlace para consultar el estado de tu cita en cualquier momento.</p>
+      </footer>
 
-              {/* Confirm cancel */}
-              {showConfirm && (
-                <div className="rounded-2xl border border-red-200 bg-red-50 p-4 space-y-3">
-                  <p className="text-xs font-bold text-red-700">¿Seguro que quieres cancelar esta cita?</p>
-                  <p className="text-[10px] text-red-600">Esta acción no se puede deshacer. Solo puedes cancelar con al menos 2 horas de anticipación.</p>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setShowConfirm(false)}
-                      className="flex-1 py-2 border border-slate-300 text-slate-600 text-xs font-semibold rounded-xl hover:bg-slate-100 transition-colors"
-                    >
-                      Volver
-                    </button>
-                    <button
-                      onClick={handleCancel}
-                      disabled={canceling}
-                      className="flex-1 py-2 bg-red-600 text-white text-xs font-semibold rounded-xl hover:bg-red-700 disabled:opacity-60 transition-colors"
-                    >
-                      {canceling ? 'Cancelando...' : 'Sí, cancelar'}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="px-4 pb-4 pt-2 text-center">
-          <p className="text-[9px] text-slate-400 font-mono">Guarda este enlace para ver el estado de tu cita en cualquier momento.</p>
-        </div>
-
-      </div>
     </div>
   );
 }

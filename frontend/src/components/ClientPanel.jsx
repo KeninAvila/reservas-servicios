@@ -1,5 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Search, ArrowLeft, MapPin, Home, CalendarDays, User2, LayoutGrid, Scissors, Sparkles, Waves, Wrench, Tag } from 'lucide-react';
+import { Search, ChevronRight, MapPin, Home, CalendarDays, User2, LayoutGrid, Scissors, Sparkles, Waves, Wrench, Tag } from 'lucide-react';
+import api from '../services/api';
+import ProfessionalView from './ProfessionalView';
+import Logo from './ui/Logo';
+import Button from './ui/Button';
+import { EstadoBadge } from './ui/Badge';
+import { Skeleton } from './ui/Skeleton';
+import { ErrorNote } from './ui/Field';
+import { avatarUrl, fmtPrecio } from '../lib/format';
 
 const CATEGORY_ICONS = {
   'barberia':          Scissors,
@@ -9,12 +17,6 @@ const CATEGORY_ICONS = {
 };
 function getCategoryIcon(nombre) {
   return CATEGORY_ICONS[nombre?.toLowerCase()] ?? Tag;
-}
-import api from '../services/api';
-import ProfessionalView from './ProfessionalView';
-
-function avatarUrl(nombre) {
-  return `https://ui-avatars.com/api/?name=${encodeURIComponent(nombre)}&background=6366f1&color=fff&size=128`;
 }
 
 function loadLocalBookings() {
@@ -98,105 +100,126 @@ export default function ClientPanel({ onOpenLogin, initialProfId = null }) {
 
   // ── My bookings ────────────────────────────────────────────────────────
   if (view === 'my-bookings') return (
-    <div className="flex-1 flex flex-col bg-white">
-      <header className="bg-white/95 backdrop-blur-sm border-b border-slate-100 px-4 py-3 flex items-center gap-3 sticky top-0 z-40">
-        <button onClick={() => setView('explore')} className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors shrink-0">
-          <ArrowLeft size={16} />
-        </button>
-        <h1 className="font-black text-slate-900 text-sm">Mis Solicitudes</h1>
+    <div className="flex-1 flex flex-col min-h-screen">
+      <header className="glass border-b border-ink/5 sticky top-0 z-40">
+        <div className="max-w-4xl mx-auto px-5 py-4 flex items-center justify-between">
+          <Logo onClick={() => setView('explore')} />
+          <button
+            onClick={() => setView('explore')}
+            className="text-xs font-semibold text-ink/55 hover:text-brand-700 transition-colors"
+          >
+            ← Explorar
+          </button>
+        </div>
       </header>
-      <main className="flex-1 p-4 space-y-3 overflow-y-auto pb-8">
+
+      <main className="flex-1 w-full max-w-4xl mx-auto px-5 py-8 pb-20">
+        <div className="flex items-baseline justify-between">
+          <h1 className="font-display font-semibold text-2xl md:text-3xl text-ink tracking-tight">Mis reservas</h1>
+          <span className="text-xs text-ink/40 font-medium">{myBookings.length} {myBookings.length === 1 ? 'cita' : 'citas'}</span>
+        </div>
+
         {myBookings.length === 0 ? (
-          <div className="text-center py-16 space-y-3">
-            <div className="w-16 h-16 rounded-2xl bg-slate-50 flex items-center justify-center mx-auto">
-              <CalendarDays size={32} className="text-slate-300" />
+          <div className="mt-10 bg-white rounded-2xl border border-sand py-16 px-6 text-center animate-fadeIn">
+            <div className="w-14 h-14 rounded-full bg-brand-50 flex items-center justify-center mx-auto">
+              <CalendarDays size={22} className="text-brand-600" strokeWidth={1.75} />
             </div>
-            <p className="text-xs text-slate-400 font-medium">Aún no tienes solicitudes de cita.</p>
-            <button onClick={() => setView('explore')} className="mt-2 text-xs font-bold text-indigo-600 hover:underline">Explorar profesionales →</button>
+            <p className="font-display font-semibold text-lg text-ink mt-5">Aún no tienes reservas</p>
+            <p className="text-sm text-ink/50 mt-1.5 max-w-xs mx-auto leading-relaxed">
+              Cuando agendes una cita con un profesional, aparecerá aquí.
+            </p>
+            <Button className="mt-6" onClick={() => setView('explore')}>Explorar profesionales</Button>
           </div>
-        ) : myBookings.map(b => {
-          const tracking  = trackingMap[b.uuid];
-          const estado    = tracking?.estado || 'PENDIENTE';
-          const badgeCls  = estado === 'ACEPTADA'   ? 'bg-indigo-100 text-indigo-700'
-                          : estado === 'RECHAZADA'  ? 'bg-red-100 text-red-600'
-                          : estado === 'FINALIZADA' ? 'bg-slate-100 text-slate-600'
-                          : 'bg-amber-100 text-amber-700';
-          const badgeLabel = estado === 'ACEPTADA'   ? '✓ Aceptada'
-                           : estado === 'RECHAZADA'  ? '✗ Rechazada'
-                           : estado === 'FINALIZADA' ? 'Finalizada'
-                           : 'Pendiente';
-          return (
-            <div key={b.uuid} className="bg-white rounded-2xl p-4 shadow-[0_2px_8px_rgba(0,0,0,0.06)] space-y-3">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <h3 className="font-black text-slate-900 text-sm truncate">{b.servicio}</h3>
-                  <span className="text-[10px] text-slate-400 font-medium block mt-0.5">{b.profesional}</span>
-                </div>
-                <span className="text-sm font-black text-indigo-600 shrink-0">${parseFloat(b.precio).toFixed(2)}</span>
-              </div>
-              <div className="flex items-center gap-1.5 text-[10px] text-slate-500 font-medium">
-                <CalendarDays size={10} className="text-indigo-400 shrink-0" />
-                <span>{b.fecha} · {b.hora}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className={`inline-block px-2.5 py-1 text-[10px] font-bold rounded-full ${badgeCls}`}>{badgeLabel}</span>
+        ) : (
+          <div className="mt-6 grid gap-3 sm:grid-cols-2">
+            {myBookings.map((b, i) => {
+              const tracking = trackingMap[b.uuid];
+              const estado   = tracking?.estado || 'PENDIENTE';
+              return (
                 <button
+                  key={b.uuid}
                   onClick={() => { window.location.hash = `#/cita/${b.uuid}`; }}
-                  className="text-[10px] text-indigo-500 font-semibold hover:underline"
+                  className="w-full text-left bg-white rounded-2xl border border-sand p-5 flex items-center gap-4 transition-all duration-200 hover:shadow-card hover:border-brand-300 animate-fadeIn"
+                  style={{ animationDelay: `${Math.min(i * 50, 300)}ms` }}
                 >
-                  Ver detalles →
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      <h3 className="font-display font-semibold text-base text-ink truncate">{b.servicio}</h3>
+                      <EstadoBadge estado={estado} />
+                    </div>
+                    <p className="text-xs text-ink/50 mt-1">{b.profesional}</p>
+                    <p className="text-sm text-ink/70 mt-2 font-medium">
+                      {b.fecha} · {b.hora} · <span className="text-brand-700">{fmtPrecio(b.precio)}</span>
+                    </p>
+                  </div>
+                  <ChevronRight size={17} className="text-ink/25 shrink-0" />
                 </button>
-              </div>
-            </div>
-          );
-        })}
+              );
+            })}
+          </div>
+        )}
       </main>
     </div>
   );
 
   // ── Explore (default) ──────────────────────────────────────────────────
   return (
-    <div className="flex-1 flex flex-col">
-      <header className="bg-white px-5 pt-5 pb-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-black text-sm tracking-tight shadow-md shadow-indigo-200">S</div>
-          <span className="font-black tracking-tight text-slate-900 text-lg">SERVI</span>
+    <div className="flex-1 flex flex-col min-h-screen">
+
+      {/* Barra superior glass */}
+      <header className="glass border-b border-ink/5 sticky top-0 z-40">
+        <div className="max-w-6xl 2xl:max-w-7xl mx-auto px-5 py-4 flex items-center justify-between">
+          <Logo onClick={() => { setSelectedCat(''); setSearchQuery(''); }} />
+          <nav className="flex items-center gap-2">
+            <button
+              onClick={() => setView('my-bookings')}
+              className="inline-flex items-center gap-2 text-xs font-semibold text-ink/70 bg-white border border-sand hover:border-brand-400 hover:text-brand-700 px-4 py-2 rounded-full transition-all duration-200"
+            >
+              <CalendarDays size={13} />
+              Reservas
+              {myBookings.length > 0 && (
+                <span className="bg-brand-600 text-white text-[10px] font-bold rounded-full min-w-[17px] h-[17px] px-1 flex items-center justify-center">
+                  {myBookings.length}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={onOpenLogin}
+              className="hidden md:inline-flex text-xs font-semibold text-white bg-ink hover:bg-brand-950 px-4 py-2 rounded-full transition-colors duration-200"
+            >
+              Soy profesional
+            </button>
+          </nav>
         </div>
-        <button
-          onClick={() => setView('my-bookings')}
-          className="text-[11px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-full flex items-center gap-1.5 transition-all"
-        >
-          <CalendarDays size={12} />
-          Mis Citas {myBookings.length > 0 && (
-            <span className="bg-indigo-600 text-white text-[9px] rounded-full w-4 h-4 flex items-center justify-center">
-              {myBookings.length}
-            </span>
-          )}
-        </button>
       </header>
 
-      <div className="px-5 space-y-5 pb-24">
-        <div>
-          <h1 className="font-black text-slate-900 tracking-tight text-2xl leading-tight">Explorar</h1>
-          <p className="text-xs text-slate-400 font-medium mt-0.5">Encuentra el profesional que necesitas</p>
-        </div>
+      <main className="flex-1 w-full max-w-6xl 2xl:max-w-7xl mx-auto px-5 pb-28 md:pb-20">
 
-        <div className="relative">
-          <Search size={16} className="absolute left-3.5 top-3 text-slate-400" />
-          <input
-            type="text" placeholder="Buscar servicios o profesionales..."
-            value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:bg-white focus:outline-none transition-all placeholder:text-slate-400"
-          />
-        </div>
+        {/* Título + búsqueda */}
+        <section className="pt-10 md:pt-14">
+          <h1 className="font-display font-semibold text-3xl md:text-4xl text-ink tracking-tight">Explorar</h1>
 
-        {/* Category filters */}
-        <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar touch-pan-x">
+          <div className="relative mt-6 max-w-xl">
+            <Search size={17} className="absolute left-5 top-1/2 -translate-y-1/2 text-ink/35 pointer-events-none" />
+            <input
+              type="text" placeholder="Buscar servicios o profesionales…"
+              value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+              className="w-full pl-12 pr-5 py-3.5 bg-white border border-sand rounded-full text-sm shadow-soft placeholder:text-ink/35 focus:outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-600/10 transition-all duration-200"
+            />
+          </div>
+        </section>
+
+        {/* Categorías */}
+        <section className="mt-6 flex gap-2 overflow-x-auto pb-2 no-scrollbar touch-pan-x">
           <button
             onClick={() => setSelectedCat('')}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-[11px] font-bold shrink-0 transition-all ${!selectedCat ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200' : 'bg-slate-100 text-slate-600 hover:bg-indigo-50 hover:text-indigo-700'}`}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold shrink-0 border transition-all duration-200 ${
+              !selectedCat
+                ? 'bg-brand-600 text-white border-brand-600 shadow-soft'
+                : 'bg-white text-ink/60 border-sand hover:border-brand-400 hover:text-brand-700'
+            }`}
           >
-            <LayoutGrid size={12} />
+            <LayoutGrid size={13} />
             Todos
           </button>
           {categorias.map(cat => {
@@ -205,69 +228,114 @@ export default function ClientPanel({ onOpenLogin, initialProfId = null }) {
               <button
                 key={cat.id}
                 onClick={() => setSelectedCat(selectedCat === cat.id ? '' : cat.id)}
-                className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-[11px] font-bold shrink-0 transition-all ${selectedCat === cat.id ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200' : 'bg-slate-100 text-slate-600 hover:bg-indigo-50 hover:text-indigo-700'}`}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold shrink-0 border transition-all duration-200 ${
+                  selectedCat === cat.id
+                    ? 'bg-brand-600 text-white border-brand-600 shadow-soft'
+                    : 'bg-white text-ink/60 border-sand hover:border-brand-400 hover:text-brand-700'
+                }`}
               >
-                <Icon size={12} />
+                <Icon size={13} />
                 {cat.nombre}
               </button>
             );
           })}
-        </div>
+        </section>
 
-        {/* Professionals list */}
-        <div className="space-y-3">
-          <h2 className="font-bold text-slate-500 text-[11px] uppercase tracking-widest">Disponibles</h2>
+        {/* Profesionales */}
+        <section className="mt-8">
+          <div className="flex items-baseline justify-between mb-4">
+            <h2 className="caption text-ink/45">Profesionales</h2>
+            {!loadingProfs && !profsError && (
+              <span className="text-xs text-ink/40 font-medium">
+                {filtered.length} {filtered.length === 1 ? 'disponible' : 'disponibles'}
+              </span>
+            )}
+          </div>
+
           {loadingProfs ? (
-            <div className="py-12 text-center text-xs text-slate-400">Cargando profesionales...</div>
-          ) : profsError ? (
-            <div className="py-10 text-center text-xs text-red-500 bg-red-50 rounded-2xl px-4">{profsError}</div>
-          ) : filtered.length === 0 ? (
-            <div className="text-center py-12 rounded-3xl bg-slate-50 text-xs text-slate-400">
-              {searchQuery || selectedCat ? 'Sin resultados para tu búsqueda.' : 'No hay profesionales disponibles aún.'}
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {filtered.map(prof => (
-                <div
-                  key={prof.profesional_id}
-                  onClick={() => { setSelProfId(prof.profesional_id); setView('prof-view'); }}
-                  className="bg-white rounded-2xl p-4 flex items-center gap-4 cursor-pointer hover:shadow-lg transition-all shadow-[0_2px_8px_rgba(0,0,0,0.06)] group"
-                >
-                  <img
-                    src={prof.foto_perfil || avatarUrl(prof.nombre)}
-                    alt={prof.nombre}
-                    className="w-14 h-14 rounded-2xl object-cover shrink-0 group-hover:scale-105 transition-transform"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <h4 className="font-black text-slate-900 text-sm truncate leading-tight">{prof.nombre_negocio || prof.nombre}</h4>
-                    <span className="text-[11px] text-slate-500 font-medium block truncate mt-0.5">{prof.nombre} · {prof.categoria}</span>
-                    <span className="text-[10px] text-slate-400 flex items-center gap-1 mt-1.5">
-                      <MapPin size={9} className="text-indigo-400" />
-                      {prof.direccion_1 ? `${prof.direccion_1}, ` : ''}{prof.ciudad}
-                    </span>
-                  </div>
-                  <div className="shrink-0 w-6 h-6 rounded-full bg-indigo-50 flex items-center justify-center">
-                    <ArrowLeft size={12} className="text-indigo-500 rotate-180" />
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="bg-white rounded-2xl border border-sand overflow-hidden">
+                  <Skeleton className="w-full aspect-[4/3] rounded-none" />
+                  <div className="p-4 space-y-2.5">
+                    <Skeleton className="h-4 w-2/3" />
+                    <Skeleton className="h-3 w-1/2" />
                   </div>
                 </div>
               ))}
             </div>
+          ) : profsError ? (
+            <ErrorNote>{profsError}</ErrorNote>
+          ) : filtered.length === 0 ? (
+            <div className="bg-white rounded-2xl border border-sand py-16 px-6 text-center animate-fadeIn">
+              <div className="w-14 h-14 rounded-full bg-cream flex items-center justify-center mx-auto">
+                <Search size={20} className="text-ink/35" strokeWidth={1.75} />
+              </div>
+              <p className="font-display font-semibold text-lg text-ink mt-5">
+                {searchQuery || selectedCat ? 'Sin resultados' : 'Aún no hay profesionales'}
+              </p>
+              <p className="text-sm text-ink/50 mt-1.5 max-w-xs mx-auto leading-relaxed">
+                {searchQuery || selectedCat
+                  ? 'Prueba con otra búsqueda o quita los filtros.'
+                  : 'Nuevos especialistas se unen cada semana.'}
+              </p>
+              {(searchQuery || selectedCat) && (
+                <Button variant="secondary" size="sm" className="mt-6" onClick={() => { setSearchQuery(''); setSelectedCat(''); }}>
+                  Limpiar filtros
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {filtered.map((prof, i) => (
+                <button
+                  key={prof.profesional_id}
+                  onClick={() => { setSelProfId(prof.profesional_id); setView('prof-view'); }}
+                  className="text-left bg-white rounded-2xl border border-sand overflow-hidden group transition-all duration-300 hover:shadow-card hover:border-brand-300 hover:-translate-y-0.5 animate-fadeIn"
+                  style={{ animationDelay: `${Math.min(i * 50, 300)}ms` }}
+                >
+                  <div className="aspect-[4/3] overflow-hidden bg-cream">
+                    <img
+                      src={prof.foto_perfil || avatarUrl(prof.nombre)}
+                      alt={prof.nombre}
+                      onError={e => { e.target.src = avatarUrl(prof.nombre); }}
+                      className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-500"
+                    />
+                  </div>
+                  <div className="p-4">
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="font-display font-semibold text-base text-ink truncate">
+                        {prof.nombre_negocio || prof.nombre}
+                      </h3>
+                      <span className="shrink-0 text-[10px] font-semibold text-brand-700 bg-brand-50 px-2.5 py-1 rounded-full">
+                        {prof.categoria}
+                      </span>
+                    </div>
+                    <p className="text-xs text-ink/50 mt-1.5 flex items-center gap-1.5 min-w-0">
+                      <MapPin size={11} className="text-ink/35 shrink-0" />
+                      <span className="truncate">{prof.direccion_1 ? `${prof.direccion_1} · ` : ''}{prof.ciudad}</span>
+                    </p>
+                  </div>
+                </button>
+              ))}
+            </div>
           )}
-        </div>
-      </div>
+        </section>
+      </main>
 
-      <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-white/95 backdrop-blur-sm border-t border-slate-100 grid grid-cols-3 py-3 text-center">
-        <button onClick={() => { setSelectedCat(''); setSearchQuery(''); }} className="flex flex-col items-center gap-1 text-indigo-600">
-          <Home size={20} strokeWidth={2.5} />
-          <span className="text-[10px] font-bold">Inicio</span>
+      {/* Bottom nav — solo móvil */}
+      <nav className="md:hidden fixed bottom-0 inset-x-0 glass border-t border-ink/5 grid grid-cols-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] z-40">
+        <button onClick={() => { setSelectedCat(''); setSearchQuery(''); }} className="flex flex-col items-center gap-1 py-1 text-brand-700">
+          <Home size={20} strokeWidth={2.25} />
+          <span className="text-[10px] font-semibold">Inicio</span>
         </button>
-        <button onClick={() => setView('my-bookings')} className="flex flex-col items-center gap-1 text-slate-400 hover:text-indigo-500 transition-colors">
+        <button onClick={() => setView('my-bookings')} className="flex flex-col items-center gap-1 py-1 text-ink/40 hover:text-brand-700 transition-colors">
           <CalendarDays size={20} strokeWidth={1.75} />
-          <span className="text-[10px] font-semibold">Reservas</span>
+          <span className="text-[10px] font-medium">Reservas</span>
         </button>
-        <button onClick={onOpenLogin} className="flex flex-col items-center gap-1 text-slate-400 hover:text-indigo-500 transition-colors">
+        <button onClick={onOpenLogin} className="flex flex-col items-center gap-1 py-1 text-ink/40 hover:text-brand-700 transition-colors">
           <User2 size={20} strokeWidth={1.75} />
-          <span className="text-[10px] font-semibold">Profesional</span>
+          <span className="text-[10px] font-medium">Profesional</span>
         </button>
       </nav>
     </div>

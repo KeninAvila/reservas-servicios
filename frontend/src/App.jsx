@@ -64,41 +64,39 @@ export default function App() {
 
   // All other routes share the same app shell
   return (
-    <div className="min-h-screen bg-slate-100 font-sans antialiased text-slate-800">
-      <div className="max-w-md mx-auto bg-white min-h-screen shadow-lg flex flex-col border-x border-slate-200 relative">
+    <div className="min-h-screen bg-cream text-ink antialiased flex flex-col">
 
-        {/* Client panel — also handles #/p/:id deep links via initialProfId */}
-        {currentRole === 'client' && (
-          <ClientPanel
-            onOpenLogin={() => setShowLogin(true)}
-            initialProfId={hashRoute?.type === 'profile' ? hashRoute.id : null}
-          />
-        )}
+      {/* Client panel — also handles #/p/:id deep links via initialProfId */}
+      {currentRole === 'client' && (
+        <ClientPanel
+          onOpenLogin={() => setShowLogin(true)}
+          initialProfId={hashRoute?.type === 'profile' ? hashRoute.id : null}
+        />
+      )}
 
-        {currentRole === 'professional' && (loggedInProfId || loggedInUser) && (
-          <ProfessionalPanel
-            professionals={[]}
-            bookings={[]}
-            activeProfId={loggedInProfId}
-            loggedInUser={loggedInUser}
-            onUpdateProfessionals={() => {}}
-            onUpdateBookings={() => {}}
-            onLogout={handleLogout}
-          />
-        )}
+      {currentRole === 'professional' && (loggedInProfId || loggedInUser) && (
+        <ProfessionalPanel
+          professionals={[]}
+          bookings={[]}
+          activeProfId={loggedInProfId}
+          loggedInUser={loggedInUser}
+          onUpdateProfessionals={() => {}}
+          onUpdateBookings={() => {}}
+          onLogout={handleLogout}
+        />
+      )}
 
-        {currentRole === 'admin' && (
-          <AdminPanel onLogout={handleLogout} />
-        )}
+      {currentRole === 'admin' && (
+        <AdminPanel onLogout={handleLogout} />
+      )}
 
-        {showLogin && (
-          <LoginModal
-            onLogin={handleLogin}
-            onClose={() => setShowLogin(false)}
-          />
-        )}
+      {showLogin && (
+        <LoginModal
+          onLogin={handleLogin}
+          onClose={() => setShowLogin(false)}
+        />
+      )}
 
-      </div>
     </div>
   );
 }

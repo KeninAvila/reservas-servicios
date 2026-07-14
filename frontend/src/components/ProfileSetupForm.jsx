@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { MapPin } from 'lucide-react';
 import api from '../services/api';
+import Button from './ui/Button';
+import { Input, TextArea, Select, ErrorNote } from './ui/Field';
 
 const PROVINCIAS = [
   { id: 1, nombre: 'Manabí' },
@@ -77,130 +79,93 @@ export default function ProfileSetupForm({ onComplete, initialData, onCancel }) 
   }
 
   return (
-    <main className="flex-1 p-5 overflow-y-auto pb-10">
-      <div className="text-center mb-5">
-        <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-2">
-          <MapPin size={22} className="text-indigo-600" />
+    <main className="flex-1 overflow-y-auto">
+      <div className="max-w-xl mx-auto px-5 py-10 pb-16">
+        <div className="text-center mb-8">
+          <div className="w-14 h-14 bg-brand-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <MapPin size={24} className="text-brand-600" strokeWidth={1.75} />
+          </div>
+          <h2 className="font-display text-2xl text-ink">{isEditing ? 'Editar perfil' : 'Completa tu perfil'}</h2>
+          <p className="text-sm text-ink/50 mt-2 leading-relaxed max-w-sm mx-auto">
+            {isEditing ? 'Actualiza tus datos de categoría y ubicación.' : 'Necesitamos estos datos antes de que puedas crear tus servicios.'}
+          </p>
         </div>
-        <h2 className="font-bold text-slate-900 text-base">{isEditing ? 'Editar perfil' : 'Completa tu perfil'}</h2>
-        <p className="text-xs text-slate-500 mt-1">
-          {isEditing ? 'Actualiza tus datos de categoría y ubicación.' : 'Necesitamos estos datos antes de que puedas crear tus servicios.'}
-        </p>
-      </div>
 
-      {error && (
-        <div className="mb-4 px-3 py-2 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl">{error}</div>
-      )}
+        {error && <div className="mb-5"><ErrorNote>{error}</ErrorNote></div>}
 
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <div>
-          <span className="text-[10px] font-bold text-slate-500 block mb-1">Nombre del negocio *</span>
-          <input
-            type="text" required placeholder="Ej: Barbería El Estilo, Salón Bella..."
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <Input
+            label="Nombre del negocio *"
+            type="text" required placeholder="Ej: Barbería El Estilo, Salón Bella…"
             value={nombreNegocio} onChange={e => setNombreNegocio(e.target.value)}
             maxLength={100}
-            className="w-full text-xs px-3 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:border-indigo-500"
           />
-        </div>
 
-        <div>
-          <span className="text-[10px] font-bold text-slate-500 block mb-1">Categoría *</span>
-          <select
-            required value={categoriaId} onChange={e => setCategoriaId(e.target.value)}
-            className="w-full text-xs px-3 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:border-indigo-500 bg-white"
-          >
-            <option value="">Selecciona una categoría...</option>
+          <Select label="Categoría *" required value={categoriaId} onChange={e => setCategoriaId(e.target.value)}>
+            <option value="">Selecciona una categoría…</option>
             {categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-          </select>
-        </div>
+          </Select>
 
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <span className="text-[10px] font-bold text-slate-500 block mb-1">Provincia *</span>
-            <select
-              required value={provinciaId}
+          <div className="grid grid-cols-2 gap-3">
+            <Select
+              label="Provincia *" required value={provinciaId}
               onChange={e => { setProvinciaId(e.target.value); setCiudadId(''); }}
-              className="w-full text-xs px-3 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:border-indigo-500 bg-white"
             >
-              <option value="">Provincia...</option>
+              <option value="">Provincia…</option>
               {PROVINCIAS.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-            </select>
-          </div>
-          <div>
-            <span className="text-[10px] font-bold text-slate-500 block mb-1">Ciudad *</span>
-            <select
-              required disabled={!provinciaId} value={ciudadId} onChange={e => setCiudadId(e.target.value)}
-              className="w-full text-xs px-3 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:border-indigo-500 bg-white disabled:bg-slate-50 disabled:text-slate-400"
+            </Select>
+            <Select
+              label="Ciudad *" required disabled={!provinciaId} value={ciudadId}
+              onChange={e => setCiudadId(e.target.value)}
             >
-              <option value="">Ciudad...</option>
+              <option value="">Ciudad…</option>
               {ciudadesDisponibles.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-            </select>
+            </Select>
           </div>
-        </div>
 
-        <div>
-          <span className="text-[10px] font-bold text-slate-500 block mb-1">Dirección *</span>
-          <input
+          <Input
+            label="Dirección *"
             type="text" required placeholder="Av. Principal 123"
             value={direccion1} onChange={e => setDireccion1(e.target.value)}
-            className="w-full text-xs px-3 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:border-indigo-500"
           />
-        </div>
 
-        <div>
-          <span className="text-[10px] font-bold text-slate-500 block mb-1">Referencia (opcional)</span>
-          <input
-            type="text" placeholder="Segundo piso, local 3..."
+          <Input
+            label="Referencia" hint="opcional"
+            type="text" placeholder="Segundo piso, local 3…"
             value={direccion2} onChange={e => setDireccion2(e.target.value)}
-            className="w-full text-xs px-3 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:border-indigo-500"
           />
-        </div>
 
-        <div>
-          <span className="text-[10px] font-bold text-slate-500 block mb-1">Teléfono WhatsApp <span className="font-normal text-slate-400">(opcional — lo verá el cliente para contactarte)</span></span>
-          <input
+          <Input
+            label="Teléfono WhatsApp" hint="opcional, lo verá el cliente para contactarte"
             type="tel" placeholder="+593 99 123 4567"
             value={telefono} onChange={e => setTelefono(e.target.value)}
             maxLength={20}
-            className="w-full text-xs px-3 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:border-indigo-500"
           />
-        </div>
 
-        <div>
-          <span className="text-[10px] font-bold text-slate-500 block mb-1">Enlace de Google Maps *</span>
-          <input
-            type="url" required placeholder="https://maps.google.com/..."
+          <Input
+            label="Enlace de Google Maps *"
+            type="url" required placeholder="https://maps.google.com/…"
             value={mapsUrl} onChange={e => setMapsUrl(e.target.value)}
-            className="w-full text-xs px-3 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:border-indigo-500"
           />
-        </div>
 
-        <div>
-          <span className="text-[10px] font-bold text-slate-500 block mb-1">Descripción profesional *</span>
-          <textarea
-            required rows={3} placeholder="Cuéntale a tus clientes sobre tu experiencia..."
+          <TextArea
+            label="Descripción profesional *"
+            required rows={3} placeholder="Cuéntale a tus clientes sobre tu experiencia…"
             value={descripcion} onChange={e => setDescripcion(e.target.value)}
-            className="w-full text-xs px-3 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:border-indigo-500 resize-none"
           />
-        </div>
 
-        <div className="flex gap-2 pt-2">
-          {isEditing && (
-            <button
-              type="button" onClick={onCancel}
-              className="flex-1 border border-slate-300 text-slate-600 font-bold py-3 rounded-xl text-xs hover:bg-slate-50 transition-colors"
-            >
-              Cancelar
-            </button>
-          )}
-          <button
-            type="submit" disabled={loading}
-            className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-bold py-3 rounded-xl text-xs transition-colors shadow-sm"
-          >
-            {loading ? 'Guardando...' : isEditing ? 'Guardar cambios' : 'Guardar perfil y continuar'}
-          </button>
-        </div>
-      </form>
+          <div className="flex gap-3 pt-3">
+            {isEditing && (
+              <Button type="button" variant="secondary" size="lg" className="flex-1" onClick={onCancel}>
+                Cancelar
+              </Button>
+            )}
+            <Button type="submit" size="lg" className="flex-1" loading={loading}>
+              {loading ? 'Guardando…' : isEditing ? 'Guardar cambios' : 'Guardar perfil y continuar'}
+            </Button>
+          </div>
+        </form>
+      </div>
     </main>
   );
 }
