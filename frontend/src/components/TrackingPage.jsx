@@ -8,6 +8,10 @@ import { Spinner } from './ui/Skeleton';
 import { ErrorNote } from './ui/Field';
 import { fmtFechaLarga, fmtHora, fmtPrecio } from '../lib/format';
 
+function citaYaOcurrio(fecha, hora) {
+  return new Date(`${fecha}T${hora}`) <= new Date();
+}
+
 const ESTADO_HERO = {
   PENDIENTE:    { icon: AlertCircle,  cls: 'bg-gold-100 text-gold-700',    msg: 'El profesional confirmará tu cita pronto.' },
   ACEPTADA:     { icon: CheckCircle2, cls: 'bg-brand-50 text-brand-700',   msg: 'Tu cita está confirmada. Te esperamos.' },
@@ -203,13 +207,21 @@ export default function TrackingPage({ uuid }) {
               <div className="bg-white rounded-2xl border border-brand-200 p-5">
                 <p className="text-sm font-semibold text-ink">Gestionar esta cita</p>
                 <div className="flex gap-2 mt-4">
-                  <Button size="sm" className="flex-1" onClick={() => setShowRespondConfirm('aceptar')}>
+                  <Button
+                    size="sm" className="flex-1"
+                    disabled={citaYaOcurrio(reserva.fecha, reserva.hora)}
+                    title={citaYaOcurrio(reserva.fecha, reserva.hora) ? 'La fecha y hora de esta cita ya pasó' : undefined}
+                    onClick={() => setShowRespondConfirm('aceptar')}
+                  >
                     <CheckCircle2 size={14} /> Aceptar
                   </Button>
                   <Button variant="dangerOutline" size="sm" className="flex-1" onClick={() => setShowRespondConfirm('rechazar')}>
                     <XCircle size={14} /> Rechazar
                   </Button>
                 </div>
+                {citaYaOcurrio(reserva.fecha, reserva.hora) && (
+                  <p className="text-[10px] text-ink/40 mt-2 text-center">Esta cita ya pasó de fecha — solo puedes rechazarla.</p>
+                )}
               </div>
             )}
 

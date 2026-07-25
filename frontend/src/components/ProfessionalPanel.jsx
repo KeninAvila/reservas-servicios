@@ -16,6 +16,10 @@ import { estadoInfo, fmtPrecio } from '../lib/format';
 
 const DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
+function citaYaOcurrio(fecha, hora) {
+  return new Date(`${fecha}T${hora}`) <= new Date();
+}
+
 function buildDefaultHorarios() {
   return DIAS.map((_, i) => ({
     dia_semana:  i,
@@ -49,6 +53,7 @@ export default function ProfessionalPanel({
   const [newServicePrice,  setNewServicePrice]  = useState(25);
   const [newServiceDuration, setNewServiceDuration] = useState(30);
   const [serviceError,     setServiceError]     = useState('');
+  const [editingServiceId, setEditingServiceId] = useState(null);
 
   // ── Horarios ──────────────────────────────────────────────────────────────
   const [horarios,         setHorarios]         = useState(buildDefaultHorarios());
@@ -167,19 +172,48 @@ export default function ProfessionalPanel({
   }, [panelTab, hasProfile, reservaFiltro, fetchReservas]);
 
   // ── Servicios CRUD ────────────────────────────────────────────────────────
-  async function handleAddService(e) {
+  function resetServiceForm() {
+    setIsAddingService(false);
+    setEditingServiceId(null);
+    setNewServiceName(''); setNewServiceDesc('');
+    setNewServicePrice(25); setNewServiceDuration(30);
+    setServiceError('');
+  }
+
+  function handleStartAddService() {
+    if (isAddingService) { resetServiceForm(); return; }
+    setEditingServiceId(null);
+    setNewServiceName(''); setNewServiceDesc('');
+    setNewServicePrice(25); setNewServiceDuration(30);
+    setServiceError('');
+    setIsAddingService(true);
+  }
+
+  function handleEditService(s) {
+    setEditingServiceId(s.id);
+    setNewServiceName(s.nombre);
+    setNewServiceDesc(s.descripcion || '');
+    setNewServicePrice(Number(s.precio));
+    setNewServiceDuration(Number(s.duracion_min));
+    setServiceError('');
+    setIsAddingService(true);
+  }
+
+  async function handleSubmitService(e) {
     e.preventDefault();
     setServiceError('');
     if (!newServiceName.trim() || !newServiceDesc.trim()) return;
     try {
-      const res = await api.post('/router.php?route=professional/service/upsert', {
+      const payload = {
         nombre: newServiceName.trim(), descripcion: newServiceDesc.trim(),
         precio: newServicePrice, duracion_min: newServiceDuration,
-      });
+      };
+      if (editingServiceId) payload.id = editingServiceId;
+      const res = await api.post('/router.php?route=professional/service/upsert', payload);
       if (res.data.success) {
         const list = await api.get('/router.php?route=professional/service/list');
         if (list.data.success) setLocalServices(list.data.data);
-        setNewServiceName(''); setNewServiceDesc(''); setIsAddingService(false);
+        resetServiceForm();
       } else {
         setServiceError(res.data.message);
       }
@@ -475,19 +509,38 @@ export default function ProfessionalPanel({
 
                   {/* Acciones según estado */}
                   {r.estado === 'PENDIENTE' && (
-                    <div className="grid grid-cols-2 gap-2 mt-3">
-                      <Button size="sm" onClick={() => handleReservaStatus(r.id, 'ACEPTADA')}>
-                        <CheckCircle size={13} /> Aceptar
-                      </Button>
-                      <Button size="sm" variant="dangerOutline" onClick={() => handleReservaStatus(r.id, 'RECHAZADA')}>
-                        <XCircle size={13} /> Rechazar
-                      </Button>
+                    <div className="mt-3">
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button
+                          size="sm"
+                          disabled={citaYaOcurrio(r.fecha, r.hora)}
+                          title={citaYaOcurrio(r.fecha, r.hora) ? 'La fecha y hora de esta cita ya pasó' : undefined}
+                          onClick={() => handleReservaStatus(r.id, 'ACEPTADA')}
+                        >
+                          <CheckCircle size={13} /> Aceptar
+                        </Button>
+                        <Button size="sm" variant="dangerOutline" onClick={() => handleReservaStatus(r.id, 'RECHAZADA')}>
+                          <XCircle size={13} /> Rechazar
+                        </Button>
+                      </div>
+                      {citaYaOcurrio(r.fecha, r.hora) && (
+                        <p className="text-[10px] text-ink/40 mt-1.5 text-center">Esta cita ya pasó de fecha — solo puedes rechazarla.</p>
+                      )}
                     </div>
                   )}
                   {r.estado === 'ACEPTADA' && (
-                    <Button size="sm" full className="mt-3" onClick={() => handleReservaStatus(r.id, 'FINALIZADA')}>
-                      <Flag size={13} /> Marcar como finalizada
-                    </Button>
+                    citaYaOcurrio(r.fecha, r.hora) ? (
+                      <Button size="sm" full className="mt-3" onClick={() => handleReservaStatus(r.id, 'FINALIZADA')}>
+                        <Flag size={13} /> Marcar como finalizada
+                      </Button>
+                    ) : (
+                      <div className="mt-3 text-center">
+                        <Button size="sm" full disabled title="Podrás finalizarla una vez que llegue la fecha y hora de la cita">
+                          <Flag size={13} /> Marcar como finalizada
+                        </Button>
+                        <p className="text-[10px] text-ink/40 mt-1.5">Disponible a partir del {r.fecha} · {r.hora.slice(0, 5)}</p>
+                      </div>
+                    )
                   )}
                 </Card>
               ))}
@@ -579,7 +632,7 @@ export default function ProfessionalPanel({
               <section className="space-y-3">
                 <SectionTitle
                   action={
-                    <button onClick={() => { setIsAddingService(!isAddingService); setServiceError(''); }} className="text-xs text-brand-700 font-semibold hover:underline flex items-center gap-1">
+                    <button onClick={handleStartAddService} className="text-xs text-brand-700 font-semibold hover:underline flex items-center gap-1">
                       <Plus size={13} /> Añadir
                     </button>
                   }
@@ -590,8 +643,8 @@ export default function ProfessionalPanel({
                 <ErrorNote>{serviceError}</ErrorNote>
 
                 {isAddingService && (
-                  <Card as="form" onSubmit={handleAddService} className="space-y-3 border-brand-200 bg-brand-50/40">
-                    <p className="text-sm font-semibold text-ink">Nuevo servicio</p>
+                  <Card as="form" onSubmit={handleSubmitService} className="space-y-3 border-brand-200 bg-brand-50/40">
+                    <p className="text-sm font-semibold text-ink">{editingServiceId ? 'Editar servicio' : 'Nuevo servicio'}</p>
                     <Input type="text" required placeholder="Nombre del servicio" value={newServiceName} onChange={e => setNewServiceName(e.target.value)} />
                     <Input type="text" required placeholder="Descripción del servicio" value={newServiceDesc} onChange={e => setNewServiceDesc(e.target.value)} />
                     <div className="grid grid-cols-2 gap-3">
@@ -599,8 +652,8 @@ export default function ProfessionalPanel({
                       <Input label="Duración (min)" type="number" required min="5" max="480" value={newServiceDuration} onChange={e => setNewServiceDuration(Number(e.target.value))} />
                     </div>
                     <div className="flex justify-end gap-2 pt-1">
-                      <Button type="button" variant="ghost" size="sm" onClick={() => { setIsAddingService(false); setServiceError(''); }}>Cancelar</Button>
-                      <Button type="submit" size="sm">Añadir servicio</Button>
+                      <Button type="button" variant="ghost" size="sm" onClick={resetServiceForm}>Cancelar</Button>
+                      <Button type="submit" size="sm">{editingServiceId ? 'Guardar cambios' : 'Añadir servicio'}</Button>
                     </div>
                   </Card>
                 )}
@@ -618,6 +671,13 @@ export default function ProfessionalPanel({
                         {s.descripcion && <span className="text-xs text-ink/40 block truncate">{s.descripcion}</span>}
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          title="Editar"
+                          onClick={() => handleEditService(s)}
+                          className="p-2 text-ink/35 hover:text-brand-700 hover:bg-brand-50 rounded-lg transition-colors"
+                        >
+                          <Edit2 size={14} />
+                        </button>
                         <button
                           title={s.estado === 'inactivo' ? 'Activar' : 'Desactivar'}
                           onClick={() => handleToggleStatus(s.id, s.estado || 'activo')}
@@ -785,18 +845,18 @@ export default function ProfessionalPanel({
                   {stats.por_mes.length > 0 && (
                     <Card>
                       <h3 className="text-sm font-semibold text-ink mb-4">Reservas por mes</h3>
-                      <div className="flex items-end gap-2 h-28">
+                      <div className="flex items-end gap-2 h-32">
                         {stats.por_mes.map(m => {
                           const [, mes] = m.mes.split('-');
                           const pct = Math.round((m.cantidad / maxMes) * 100);
                           return (
-                            <div key={m.mes} className="flex-1 flex flex-col items-center gap-1.5">
-                              <span className="text-[10px] text-ink/50 font-semibold">{m.cantidad}</span>
+                            <div key={m.mes} className="flex-1 flex flex-col items-center gap-2">
+                              <span className="text-sm text-ink font-bold">{m.cantidad}</span>
                               <div
                                 className="w-full bg-brand-500 rounded-t-md transition-all"
                                 style={{ height: `${Math.max(pct, 8)}%` }}
                               />
-                              <span className="text-[10px] text-ink/40">{MESES[Number(mes) - 1]}</span>
+                              <span className="text-xs text-ink/50 font-semibold">{MESES[Number(mes) - 1]}</span>
                             </div>
                           );
                         })}
@@ -846,18 +906,19 @@ export default function ProfessionalPanel({
                   {stats.horas_pico.length > 0 && (
                     <Card>
                       <h3 className="text-sm font-semibold text-ink mb-4">Horas más ocupadas</h3>
-                      <div className="flex items-end gap-1.5 h-24">
+                      <div className="flex items-end gap-2 h-28">
                         {stats.horas_pico.map(h => {
                           const pct = Math.round((h.cantidad / maxHora) * 100);
                           const hNum = Number(h.hora);
-                          const label = `${hNum % 12 || 12}${hNum >= 12 ? 'p' : 'a'}`;
+                          const label = `${hNum % 12 || 12}${hNum >= 12 ? 'pm' : 'am'}`;
                           return (
-                            <div key={h.hora} className="flex-1 flex flex-col items-center gap-1">
+                            <div key={h.hora} className="flex-1 flex flex-col items-center gap-2">
+                              <span className="text-sm text-ink font-bold">{h.cantidad}</span>
                               <div
                                 className="w-full bg-gold-400 rounded-t-md"
                                 style={{ height: `${Math.max(pct, 8)}%` }}
                               />
-                              <span className="text-[9px] text-ink/40">{label}</span>
+                              <span className="text-xs text-ink/50 font-semibold">{label}</span>
                             </div>
                           );
                         })}

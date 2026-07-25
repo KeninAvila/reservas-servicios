@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
-import { MapPin } from 'lucide-react';
+import { MapPin, Map } from 'lucide-react';
+import 'leaflet/dist/leaflet.css';
 import api from '../services/api';
 import Button from './ui/Button';
 import { Input, TextArea, Select, ErrorNote } from './ui/Field';
+import LocationPicker from './ui/LocationPicker';
 
 const PROVINCIAS = [
   { id: 1, nombre: 'Manabí' },
@@ -40,6 +42,7 @@ export default function ProfileSetupForm({ onComplete, initialData, onCancel }) 
   const [telefono,      setTelefono]      = useState(initialData?.telefono ?? '');
   const [loading,       setLoading]       = useState(false);
   const [error,         setError]         = useState('');
+  const [showMapPicker, setShowMapPicker] = useState(false);
   const isEditing = !!initialData;
 
   const ciudadesDisponibles = CIUDADES.filter(c => c.provincia_id === Number(provinciaId));
@@ -48,8 +51,14 @@ export default function ProfileSetupForm({ onComplete, initialData, onCancel }) 
     e.preventDefault();
     setError('');
 
-    if (!nombreNegocio.trim() || !categoriaId || !provinciaId || !ciudadId || !direccion1.trim() || !mapsUrl.trim() || !descripcion.trim()) {
+    if (!nombreNegocio.trim() || !categoriaId || !provinciaId || !ciudadId || !direccion1.trim() || !mapsUrl.trim() || !descripcion.trim() || !telefono.trim()) {
       setError('Completa todos los campos obligatorios.');
+      return;
+    }
+
+    const telefonoLimpio = telefono.replace(/[\s\-()]/g, '');
+    if (!/^\+?\d{7,20}$/.test(telefonoLimpio)) {
+      setError('El teléfono no es válido. Usa solo números (puede incluir +, espacios o guiones).');
       return;
     }
 
@@ -136,17 +145,37 @@ export default function ProfileSetupForm({ onComplete, initialData, onCancel }) 
           />
 
           <Input
-            label="Teléfono WhatsApp" hint="opcional, lo verá el cliente para contactarte"
-            type="tel" placeholder="+593 99 123 4567"
+            label="Teléfono WhatsApp *" hint="lo verá el cliente para contactarte"
+            type="tel" required placeholder="0991234567 o +593 99 123 4567"
             value={telefono} onChange={e => setTelefono(e.target.value)}
             maxLength={20}
           />
 
-          <Input
-            label="Enlace de Google Maps *"
-            type="url" required placeholder="https://maps.google.com/…"
-            value={mapsUrl} onChange={e => setMapsUrl(e.target.value)}
-          />
+          <div>
+            <label className="block mb-1.5 text-xs font-semibold text-ink/60 tracking-wide">
+              Ubicación en el mapa *
+            </label>
+            <button
+              type="button"
+              onClick={() => setShowMapPicker(true)}
+              className="w-full flex items-center gap-3 px-4 py-3 bg-white border border-sand rounded-xl text-sm text-left transition-all duration-200 hover:border-brand-400"
+            >
+              <div className="w-8 h-8 rounded-lg bg-brand-50 flex items-center justify-center shrink-0">
+                <Map size={15} className="text-brand-600" />
+              </div>
+              <span className={mapsUrl ? 'text-ink truncate' : 'text-ink/35'}>
+                {mapsUrl ? 'Ubicación seleccionada — toca para cambiar' : 'Buscar y marcar mi ubicación…'}
+              </span>
+            </button>
+          </div>
+
+          {showMapPicker && (
+            <LocationPicker
+              initialUrl={mapsUrl}
+              onClose={() => setShowMapPicker(false)}
+              onConfirm={url => { setMapsUrl(url); setShowMapPicker(false); }}
+            />
+          )}
 
           <TextArea
             label="Descripción profesional *"

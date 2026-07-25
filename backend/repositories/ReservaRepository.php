@@ -21,7 +21,7 @@ class ReservaRepository
 
     public function findByUuidForProfesional(string $uuid, int $userId): ?array
     {
-        $sql = "SELECT r.id, er.nombre AS estado
+        $sql = "SELECT r.id, r.fecha, r.hora, er.nombre AS estado
                 FROM reservas r
                 JOIN profesionales_perfil pp ON r.profesional_id = pp.id
                 JOIN estados_reserva er ON r.estado_id = er.id

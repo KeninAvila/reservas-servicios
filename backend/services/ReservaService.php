@@ -28,7 +28,18 @@ class ReservaService
         }
 
         $nuevoEstado = $accion === 'aceptar' ? 'ACEPTADA' : 'RECHAZADA';
-        $estadoId    = $this->repo->getEstadoId($nuevoEstado);
+
+        if ($nuevoEstado === 'ACEPTADA') {
+            $fechaHoraCita = new DateTime($reserva['fecha'] . ' ' . $reserva['hora']);
+            if (new DateTime() > $fechaHoraCita) {
+                return [
+                    'success' => false,
+                    'message' => 'No puedes aceptar esta cita: la fecha y hora programada (' . $fechaHoraCita->format('d/m/Y H:i') . ') ya pasó. Puedes rechazarla.',
+                ];
+            }
+        }
+
+        $estadoId = $this->repo->getEstadoId($nuevoEstado);
 
         if (!$estadoId) {
             return ['success' => false, 'message' => 'Error interno.'];
@@ -93,6 +104,26 @@ class ReservaService
 
         if (!isset($transiciones[$estadoActual]) || !in_array($nuevoEstado, $transiciones[$estadoActual], true)) {
             return ['success' => false, 'message' => "No se puede cambiar de $estadoActual a $nuevoEstado."];
+        }
+
+        if ($nuevoEstado === 'FINALIZADA') {
+            $fechaHoraCita = new DateTime($reserva['fecha'] . ' ' . $reserva['hora']);
+            if (new DateTime() < $fechaHoraCita) {
+                return [
+                    'success' => false,
+                    'message' => 'No puedes marcar como finalizada una cita que aún no ha ocurrido (programada para el ' . $fechaHoraCita->format('d/m/Y') . ' a las ' . $fechaHoraCita->format('H:i') . ').',
+                ];
+            }
+        }
+
+        if ($nuevoEstado === 'ACEPTADA') {
+            $fechaHoraCita = new DateTime($reserva['fecha'] . ' ' . $reserva['hora']);
+            if (new DateTime() > $fechaHoraCita) {
+                return [
+                    'success' => false,
+                    'message' => 'No puedes aceptar esta cita: la fecha y hora programada (' . $fechaHoraCita->format('d/m/Y H:i') . ') ya pasó. Puedes rechazarla.',
+                ];
+            }
         }
 
         $estadoId = $this->repo->getEstadoId($nuevoEstado);

@@ -66,10 +66,16 @@ class ProfesionalValidator
         $direccion2 = trim($data['direccion_2'] ?? '');
 
         $telefono = trim($data['telefono'] ?? '');
-        if ($telefono !== '' && strlen($telefono) > 20) {
+        if ($telefono === '') {
             return [
                 'success' => false,
-                'message' => 'El teléfono no puede superar los 20 caracteres.'
+                'message' => 'El teléfono es obligatorio.'
+            ];
+        }
+        if (!preg_match('/^\+?\d{7,20}$/', preg_replace('/[\s\-()]/', '', $telefono))) {
+            return [
+                'success' => false,
+                'message' => 'El teléfono no es válido. Usa solo números (puede incluir +, espacios o guiones).'
             ];
         }
 
